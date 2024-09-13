@@ -1,0 +1,58 @@
+name: Deploy website
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  FORCE_COLOR: "1"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      # - uses: laytan/setup-odin@v2
+      #   with:
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Get commonmark
+      #   run: sudo apt-fast install libcmark-dev
+      # - name: Get and build Odin docs generator
+      #   run: |
+      #     cd /home/runner
+      #     git clone https://github.com/odin-lang/pkg.odin-lang.org odin-doc
+      #     cd odin-doc
+      #     # The /home/runner/odin directory is in the PATH so output it there.
+      #     odin build . -out:/home/runner/odin/odin-doc
+      #     cd /home/runner
+      - uses: actions/checkout@v4
+      # - name: Generate documentation
+      #   run: ./docs/generate.sh
+      - name: Create website
+        run: |
+          mkdir -p website/examples
+
+          cp -R examples/bunny/web website/examples/bunny
+          cp -R examples/box2d/web website/examples/box2d
+
+          echo "Hellope!"        > website/index.html
+          echo "nais.laytan.dev" > website/CNAME
+
+      - uses: actions/configure-pages@v3
+      - uses: actions/upload-pages-artifact@v2
+        with:
+          path: ./website
+      - uses: actions/deploy-pages@v2
+        id: deployment
