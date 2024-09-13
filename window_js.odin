@@ -41,6 +41,9 @@ _run :: proc(title: string, size: [2]int, flags: Flags, handler: Event_Handler) 
 	assert(ok)
 	ok  = js.add_event_listener("wgpu-canvas", .Pointer_Move, nil, __mouse_move_callback)
 	assert(ok)
+	ok  = js.add_event_listener("wgpu-canvas", .Touch_Move, nil, __mouse_move_callback)
+	assert(ok)
+
 	ok  = js.add_window_event_listener(.Resize, nil, __size_callback)
 	assert(ok)
 
@@ -370,10 +373,16 @@ _KEY_MENU          :: 0
 __mouse_down_callback :: proc(e: js.Event) {
 	context = g_window.ctx
 
+	js.event_prevent_default()
+
 	if e.data.mouse.button > 7 {
 		log.warnf("mouse down callback with mouse button %v out of supported mouse button range", e.data.mouse.button)
 		return
 	}
+
+	g_window.handler(Move{
+		position = linalg.array_cast(e.data.mouse.offset, f64),
+	})
 
 	g_window.handler(Input{
 		key    = Key(e.data.mouse.button),
@@ -384,6 +393,8 @@ __mouse_down_callback :: proc(e: js.Event) {
 @(private="file")
 __mouse_up_callback :: proc(e: js.Event) {
 	context = g_window.ctx
+
+	js.event_prevent_default()
 
 	if e.data.mouse.button > 7 {
 		log.warnf("mouse up callback with mouse button %v out of supported mouse button range", e.data.mouse.button)
@@ -399,6 +410,8 @@ __mouse_up_callback :: proc(e: js.Event) {
 @(private="file")
 __mouse_move_callback :: proc(e: js.Event) {
 	context = g_window.ctx
+
+	js.event_prevent_default()
 
 	g_window.handler(Move{
 		position = linalg.array_cast(e.data.mouse.offset, f64),

@@ -1515,6 +1515,27 @@ function odinSetupDefaultImports(wasmMemoryInterface, consoleElement, memory) {
 
 					wmi.storeI16(off(2), e.button);
 					wmi.storeU16(off(2), e.buttons);
+				} else if (e instanceof TouchEvent) {
+					if (e.changedTouches && e.changedTouches.length) {
+						console.log(e.changedTouches[0], e.target);
+						const t = e.changedTouches[0];
+						wmi.storeI64(off(8), t.screenX);
+						wmi.storeI64(off(8), t.screenY);
+						wmi.storeI64(off(8), t.clientX);
+						wmi.storeI64(off(8), t.clientY);
+						wmi.storeI64(off(8), t.clientX - e.target.offsetLeft);
+						wmi.storeI64(off(8), t.clientY - e.target.offsetTop);
+						wmi.storeI64(off(8), t.pageX);
+						wmi.storeI64(off(8), t.pageY);
+
+						off(8);
+						off(8);
+
+						wmi.storeU8(off(1), !!e.ctrlKey);
+						wmi.storeU8(off(1), !!e.shiftKey);
+						wmi.storeU8(off(1), !!e.altKey);
+						wmi.storeU8(off(1), !!e.metaKey);
+					}
 				} else if (e instanceof KeyboardEvent) {
 					// Note: those strings are constructed
 					// on the native side from buffers that
