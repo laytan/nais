@@ -179,8 +179,6 @@ main :: proc() {
 			state.mouse_pos = linalg.array_cast(e.position, f32)
 
 		case nais.Frame:
-			nais.background_set({0, 0, 0, 255})
-
 			b2.World_Step(state.world_id, e.dt, 4)
 
 			if state.mouse_down {

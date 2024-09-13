@@ -2623,7 +2623,6 @@ class WebGPUInterface {
 				const widthOff = 16 + this.mem.intSize + 8;
 				surface.width  = this.mem.loadU32(configPtr + widthOff);
 				surface.height = this.mem.loadU32(configPtr + widthOff + 4);
-				console.log(surface.width, surface.height);
 
 				/** @type {GPUCanvasConfiguration} */
 				const config = {

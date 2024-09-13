@@ -45,10 +45,7 @@ main :: proc() {
 	@(static) mouse_pos:  [2]f32
 
 	nais.run("nais - bunnymark", {800, 450}, {.Windowed_Fullscreen}, proc(ev: nais.Event) {
-		switch e in ev {
-		case nais.Resize, nais.Text, nais.Scroll:
-			log.info(e)
-
+		#partial switch e in ev {
 		case nais.Initialized:
 			log.info("init")
 			bunny = nais.load_sprite_from_memory(#load("../_resources/wabbit_alpha.png"), .PNG)
