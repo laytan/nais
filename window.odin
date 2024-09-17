@@ -89,7 +89,7 @@ Event_Handler :: #type proc(event: Event)
 Key_Action :: enum {
 	Released,
 	Pressed,
-	Repeated,
+	// Repeated,
 }
 
 Key :: enum {

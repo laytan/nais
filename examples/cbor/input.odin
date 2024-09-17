@@ -70,7 +70,7 @@ i_press_release :: proc(key: nais.Key, action: nais.Key_Action) {
 			ba.unset(&g.inp.keys,     key)
 			ba.unset(&g.inp.new_keys, key)
 
-		case .Pressed, .Repeated:
+		case .Pressed:
 			ba.set(&g.inp.keys,     key)
 			ba.set(&g.inp.new_keys, key)
 
@@ -83,7 +83,7 @@ i_press_release :: proc(key: nais.Key, action: nais.Key_Action) {
 			ba.unset(&g.inp.keys,     key)
 			ba.unset(&g.inp.new_keys, key)
 
-		case .Pressed, .Repeated:
+		case .Pressed:
 			ba.set(&g.inp.keys,     key)
 			ba.set(&g.inp.new_keys, key)
 

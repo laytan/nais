@@ -104,7 +104,7 @@ main :: proc() {
 	context.logger = log.create_console_logger(.Info)
 
 	nais.run("CBOR", {800, 450}, {.VSync, .Low_Power}, proc(ev: nais.Event) {
-		switch e in ev {
+		#partial switch e in ev {
 		case nais.Initialized:
 			fonts[.Default] = nais.load_font_from_memory("Default", font_data[.Default])
 			fonts[.UI]      = nais.load_font_from_memory("UI",      font_data[.UI])
@@ -121,7 +121,7 @@ main :: proc() {
 			strings.builder_init(&g.builder)
 			strings.write_string(&g.builder, CBOR)
 			edit.setup_once(&g.editor, &g.builder)
-			edit.move_to(&g.editor, .End)
+			edit.move_to(&g.editor, .Start)
 
 			append(&g.file_path, "scratch.odin")
 
@@ -167,7 +167,7 @@ main :: proc() {
 			if clay.Rectangle(clay.ID("screen"), clay.Layout({ sizing = { width = clay.SizingFixed(fb.x), height = clay.SizingFixed(fb.y) } }), clay.RectangleConfig({})) {
 				if clay.Rectangle(clay.ID("main"), clay.Layout({ padding = {16, 16}, layoutDirection = .TOP_TO_BOTTOM, sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) } }), clay.RectangleConfig({})) {
 					if clay.Rectangle(clay.ID("top"), clay.Layout({ sizing = { width = clay.SizingGrow({}) } }), clay.RectangleConfig({})) {
-						clay.Text(clay.ID("title"), clay.MakeString(string(g.file_path[:])), clay.TextConfig(UI_TEXT))
+						clay.Text(clay.ID("title"), string(g.file_path[:]), clay.TextConfig(UI_TEXT))
 						if clay.Rectangle(clay.ID("right"), clay.Layout({ sizing = { width = clay.SizingGrow({}) }, childAlignment = { x = .RIGHT }, childGap = 16 }), clay.RectangleConfig({})) {
 
 							// when #defined(os_open) {
@@ -214,8 +214,8 @@ main :: proc() {
 							line_len := len(line)
 							line := strings.trim_right_space(line)
 
-							id := clay.IDI("line", line_i)
-							clay.Text(id, clay.MakeString(line), clay.TextConfig({ fontSize=16, textColor={166, 218, 149, 255}, fontId = u16(Font.Default) }))
+							id := clay.ID("line", line_i)
+							clay.Text(id, line, clay.TextConfig({ fontSize=16, textColor={166, 218, 149, 255}, fontId = u16(Font.Default) }))
 
 							// Handle clicking.
 							if clay.PointerOver(id) && key_down(.Mouse_Left) {
@@ -327,7 +327,7 @@ main :: proc() {
 
 						buf: [24]byte
 						fps := strconv.itoa(buf[:], int(math.round(len(frame_times)/frame_time)))
-						clay.Text(clay.ID("fps"), clay.MakeString(fps), clay.TextConfig(UI_TEXT))
+						clay.Text(clay.ID("fps"), fps, clay.TextConfig(UI_TEXT))
 					} // bottom
 				} // main
 

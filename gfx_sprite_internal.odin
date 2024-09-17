@@ -50,8 +50,8 @@ Constants :: struct #packed {
 #assert(size_of(Constants) % 16 == 0)
 
 _gfx_init_sprite :: proc() {
-	g.rp.width               = 40
-	g.rp.height              = 40
+	g.rp.width               = 400
+	g.rp.height              = 400
 	g.sprites.allocator      = context.allocator
 	g.free_sprites.allocator = context.allocator
 

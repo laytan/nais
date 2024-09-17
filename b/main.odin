@@ -1,8 +1,8 @@
 package nais_b
 
-import "core:sys/posix"
-
-import "vendor:glfw"
+// import "core:sys/posix"
+//
+// import "vendor:glfw"
 
 import fs "vendor:fontstash"
 import ".."
