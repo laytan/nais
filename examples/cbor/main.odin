@@ -103,7 +103,7 @@ fonts := [Font]nais.Font{}
 main :: proc() {
 	context.logger = log.create_console_logger(.Info)
 
-	nais.run("CBOR", {800, 450}, {.VSync, .Low_Power}, proc(ev: nais.Event) {
+	nais.run("CBOR", {800, 450}, {.VSync, .Low_Power, .Windowed_Fullscreen}, proc(ev: nais.Event) {
 		#partial switch e in ev {
 		case nais.Initialized:
 			fonts[.Default] = nais.load_font_from_memory("Default", font_data[.Default])
