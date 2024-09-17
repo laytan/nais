@@ -125,23 +125,28 @@ main :: proc() {
 
 			append(&g.file_path, "scratch.odin")
 
+			fb := nais.frame_buffer_size()
+
 			min_memory_size := clay.MinMemorySize()
 			arena := clay.CreateArenaWithCapacityAndMemory(min_memory_size, make([^]byte, min_memory_size))
-			clay.Initialize(arena)
+			clay.Initialize(arena, {fb.x, fb.y})
 			clay.SetMeasureTextFunction(nais_clay.measure_text)
+			clay.SetDebugModeEnabled(true)
 
 		case nais.Resize:
-			// no-op
+			fb := nais.frame_buffer_size()
+			clay.SetLayoutDimensions({fb.x, fb.y})
 
 		case nais.Input:
 			i_press_release(e.key, e.action)
+			clay.SetPointerState(linalg.array_cast(g.inp.cursor, f32) * nais.dpi(), key_down(.Mouse_Left))
 
 		case nais.Text:
 			edit.input_rune(&g.editor, e.ch)
 
 		case nais.Move:
 			g.inp.cursor = linalg.array_cast(e.position, i32)
-			clay.SetPointerPosition(linalg.array_cast(g.inp.cursor, f32) * nais.dpi())
+			clay.SetPointerState(linalg.array_cast(g.inp.cursor, f32) * nais.dpi(), key_down(.Mouse_Left))
 
 		case nais.Scroll:
 			g.inp.scroll = e.delta
@@ -163,7 +168,7 @@ main :: proc() {
 
 			RED :: [4]f32{0, 0, 255, 255}
 
-			clay.BeginLayout(i32(fb.x), i32(fb.y))
+			clay.BeginLayout()
 			if clay.Rectangle(clay.ID("screen"), clay.Layout({ sizing = { width = clay.SizingFixed(fb.x), height = clay.SizingFixed(fb.y) } }), clay.RectangleConfig({})) {
 				if clay.Rectangle(clay.ID("main"), clay.Layout({ padding = {16, 16}, layoutDirection = .TOP_TO_BOTTOM, sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) } }), clay.RectangleConfig({})) {
 					if clay.Rectangle(clay.ID("top"), clay.Layout({ sizing = { width = clay.SizingGrow({}) } }), clay.RectangleConfig({})) {
@@ -258,7 +263,7 @@ main :: proc() {
 								column := caret - buf_i
 								width := nais.measure_text(line[:column], size=16).width
 
-								if clay.Floating(clay.ID("caret-container"), clay.Layout({ sizing = { width = clay.SizingFixed(16), height = clay.SizingFixed(lh) } }), clay.FloatingConfig({ parentId = id, offset = { width, 0 } })) {
+								if clay.Floating(clay.ID("caret-container"), clay.Layout({ sizing = { width = clay.SizingFixed(16), height = clay.SizingFixed(lh) } }), clay.FloatingConfig({ parentId = id.id, offset = { width, 0 } })) {
 									if clay.Rectangle(clay.ID("caret"), clay.Layout({ sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) } }), clay.RectangleConfig({ color = { 166, 218, 149, 177 } })) {}
 								}
 							}
@@ -346,7 +351,7 @@ main :: proc() {
 				} // scrollbar
 			} // screen
 
-			render_commands := clay.EndLayout(i32(fb.x), i32(fb.y))
+			render_commands := clay.EndLayout()
 			nais_clay.render(&render_commands)
 		}
 	})

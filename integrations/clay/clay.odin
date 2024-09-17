@@ -49,7 +49,7 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 			config := render_command.config.rectangleElementConfig
 
 			if config.cornerRadius != {} {
-				log.warnf("TODO: rounded rectangles: %v", config.cornerRadius)
+				log.debugf("TODO: rounded rectangles: %v", config.cornerRadius)
 			}
 
 			if config.color.a != 0 {
@@ -60,11 +60,12 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 				)
 			}
 
-		case .ScissorStart, .ScissorEnd:
+		// case .ScissorStart, .ScissorEnd:
+			// log.debugf("unhandled clay render command: %v", render_command.commandType)
 
 		case .None: fallthrough
 		case: 
-			log.panicf("unhandled clay render command: %v", render_command.commandType)
+			log.debugf("unhandled clay render command: %v", render_command.commandType)
 		}
 	}
 }
