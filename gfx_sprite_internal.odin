@@ -1,4 +1,4 @@
-//+private
+#+private
 package nais
 
 import sa     "core:container/small_array"

@@ -1,17 +1,23 @@
-//+build !js
-//+private
+#+build !js
+#+private
 package nais
 
 import "core:strings"
 import "core:time"
 import "core:log"
 import "core:math/linalg"
+import "core:encoding/cbor"
 
 import "vendor:glfw"
 import "vendor:wgpu"
 
 Impl :: struct {
 	handle: glfw.WindowHandle,
+}
+
+Hot :: struct {
+	size: [2]int,
+	pos:  [2]int,
 }
 
 _run :: proc(title: string, size: [2]int, flags: Flags, handler: Event_Handler) {
@@ -30,8 +36,23 @@ _run :: proc(title: string, size: [2]int, flags: Flags, handler: Event_Handler) 
 		size.y = int(mode.height)
 	}
 
+	hot: Hot
+	if .Save_Window_State in flags {
+		if data, has_data := persist_get(".window-state"); has_data {
+			uerr := cbor.unmarshal(string(data), &hot)
+			assert(uerr == nil)
+			if hot.size.x > 0 && hot.size.y > 0 {
+				size = hot.size
+			}
+		}
+	}
+
 	g_window.impl.handle = glfw.CreateWindow(i32(size.x), i32(size.y), strings.clone_to_cstring(title, context.temp_allocator), nil, nil)
 	assert(g_window.impl.handle != nil)
+
+	if .Save_Window_State in flags {
+		glfw.SetWindowPos(g_window.impl.handle, i32(hot.pos.x), i32(hot.pos.y))
+	}
 
 	glfw.SetKeyCallback(        g_window.impl.handle, __key_callback         )
 	glfw.SetMouseButtonCallback(g_window.impl.handle, __mouse_button_callback)
@@ -49,12 +70,48 @@ _run :: proc(title: string, size: [2]int, flags: Flags, handler: Event_Handler) 
 	_gfx_init()
 }
 
+import "core:sys/posix"
+
 __initialized_callback :: proc() {
+	handle :: proc "c" (sig: posix.Signal) {
+		context = g_window.ctx
+		log.warnf("[nais]: caught signal %s, quitting", posix.strsignal(sig))
+		_quit()
+	}
+	posix.signal(.SIGTERM, handle)
+	posix.signal(.SIGINT,  handle)
+	posix.signal(.SIGQUIT, handle)
+
 	g_window.handler(Initialized{})
 
 	for !glfw.WindowShouldClose(g_window.impl.handle) {
 		glfw.PollEvents()
 		__frame()
+	}
+
+	__quit()
+}
+
+_quit :: proc() {
+	glfw.SetWindowShouldClose(g_window.impl.handle, true)
+}
+
+__quit :: proc() {
+	g_window.handler(Quit{})
+
+	if .Save_Window_State in g_window.flags {
+		hot: Hot
+
+		x, y := glfw.GetWindowSize(g_window.impl.handle)
+		hot.size = {int(x), int(y)}
+
+		px, py := glfw.GetWindowPos(g_window.impl.handle)
+		hot.pos = [2]int{int(px), int(py)}
+
+		data, err := cbor.marshal(hot)
+		assert(err == nil)
+
+		persist_set(".window-state", data)
 	}
 
 	glfw.DestroyWindow(g_window.impl.handle)

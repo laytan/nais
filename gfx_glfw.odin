@@ -1,5 +1,5 @@
-//+build !js
-//+private
+#+build !js
+#+private
 package nais
 
 import "core:strings"

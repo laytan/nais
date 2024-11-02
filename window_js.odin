@@ -1,17 +1,20 @@
-//+private
+#+private
 package nais
 
 import "core:fmt"
-import "core:strings"
-import "core:time"
 import "core:log"
 import "core:math/linalg"
+import "core:strings"
+import "core:sys/wasm/js"
+import "core:time"
 
-import "vendor:wasm/js"
 import "vendor:wgpu"
+
+foreign import nais_js "nais"
 
 Impl :: struct {
 	initialized: bool,
+	quit:        bool,
 	input_buf:   [dynamic]byte,
 }
 
@@ -33,7 +36,7 @@ _run :: proc(title: string, size: [2]int, flags: Flags, handler: Event_Handler) 
 	js.set_element_style("wgpu-canvas", "width",  fmt.tprintf("%vpx", size.x))
 	js.set_element_style("wgpu-canvas", "height", fmt.tprintf("%vpx", size.y))
 
-	js.set_document_title(title)
+	set_document_title(title)
 
 	ok := js.add_event_listener("wgpu-canvas", .Pointer_Down, nil, __mouse_down_callback)
 	assert(ok)
@@ -71,12 +74,15 @@ step :: proc(dt: f32) -> (keep_going: bool) {
 		return true
 	}
 
-	log.debug("frame")
+	if g_window.impl.quit {
+		return false
+	}
+
 	_gfx_frame()
 	g_window.handler(Frame{ dt = clamp(dt, 0, 1) })
 	_gfx_frame_end()
 
-	return true
+	return !g_window.impl.quit
 }
 
 @(private="file", export)
@@ -94,6 +100,16 @@ nais_input_buffer_ingest :: proc "contextless" () {
 	for ch in text {
 		g_window.handler(Text{ch=ch})
 	}
+}
+
+@(fini)
+__fini :: proc() {
+	context = g_window.ctx
+	g_window.handler(Quit{})
+}
+
+_quit :: proc() {
+	g_window.impl.quit = true
 }
 
 _wait_for_events :: proc() {
@@ -514,3 +530,9 @@ __scroll_callback :: proc(e: js.Event) {
 		delta = e.scroll.delta,
 	})
 }
+
+@(default_calling_convention="contextless")
+foreign nais_js {
+	set_document_title :: proc(title: string) ---
+}
+

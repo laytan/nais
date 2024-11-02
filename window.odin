@@ -43,10 +43,10 @@ Event :: union {
 	Text,        // Text input action.
 	Scroll,      // Scrolled.
 	Move,        // Moved cursor.
-	Serialize,
-	Deserialize,
+	// Serialize,
+	// Deserialize,
 	// Drop,        // Dropped file(s).
-	// Quit,        // Can we reliably call this in JS?
+	Quit,
 }
 
 Input :: struct {
@@ -74,13 +74,15 @@ Frame :: struct {
 
 Resize :: struct {}
 
-Serialize :: struct {
-	data: ^[]byte,
-}
+Quit :: struct {}
 
-Deserialize :: struct {
-	data: []byte,
-}
+// Serialize :: struct {
+// 	data: ^[]byte,
+// }
+//
+// Deserialize :: struct {
+// 	data: []byte,
+// }
 
 Event_Handler :: #type proc(event: Event)
 
@@ -253,11 +255,13 @@ Flag :: enum {
 	Windowed_Fullscreen,
 
 	Debug_Renderer, // Very verbose wgpu logs.
+
+	Save_Window_State, // Save window size and position on quit and load it on run (native only).
 }
 Flags :: bit_set[Flag]
 
 run :: proc(title: string, size: [2]int, flags: Flags, handler: Event_Handler) {
-	assert(!g_window.running, "already running")
+	assert(!g_window.running, "already running!")
 	g_window.running   = true
 	g_window.ctx       = context
 	g_window.handler   = handler
@@ -278,27 +282,6 @@ run :: proc(title: string, size: [2]int, flags: Flags, handler: Event_Handler) {
 
 default_context :: proc() -> runtime.Context {
 	return g_window.ctx
-}
-
-handler :: proc(new: Event_Handler = nil) -> Event_Handler {
-	if new != nil {
-		old := g_window.handler
-
-		deserialize := Deserialize{}
-		old(Serialize{data = &deserialize.data})
-
-		v, err := cbor.decode(string(deserialize.data))
-		assert(err == nil)
-		log.infof("%v %v", cbor.to_diagnostic_format(v))
-
-		g_window.ctx = context
-		g_window.handler = new
-		new(deserialize)
-
-		return old
-	}
-
-	return g_window.handler
 }
 
 @(private)
@@ -329,6 +312,10 @@ icon :: proc() {
 
 dpi :: proc() -> [2]f32 {
 	return _dpi()
+}
+
+quit :: proc() {
+	_quit()
 }
 
 frame_buffer_size :: proc() -> [2]f32 {

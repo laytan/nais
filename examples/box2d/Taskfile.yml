@@ -1,0 +1,65 @@
+version: '3'
+
+interval: '500ms'
+
+vars:
+  ODIN_ROOT:
+    sh: odin root
+
+  # NOTE: changing this requires changing the same values in the `web/index.html`.
+  INITIAL_MEMORY_PAGES: 2000
+  MAX_MEMORY_PAGES: 65536
+  PAGE_SIZE: 65536
+
+tasks:
+  hot_build:
+    watch: true
+    sources:
+      - '../../**/*.odin'
+      - '../../**/*.wgsl'
+      - '{{.ODIN_ROOT}}/**/*.odin'
+    generates:
+      - './box2d'
+    cmds:
+      - 'odin build . -o:none -use-separate-modules -lld'
+
+  hot:
+    watch: true
+    sources:
+      - 'box2d'
+    cmds:
+      - './box2d'
+
+  web:
+    deps: ['copy_web_assets']
+    sources:
+      - '../../**/*.odin'
+      - '../../**/*.wgsl'
+      - '{{.ODIN_ROOT}}/**/*.odin'
+    generates:
+      - 'web/box2d.wasm'
+    vars:
+      INITIAL_MEMORY_BYTES:
+        sh: python -c "print({{.INITIAL_MEMORY_PAGES}} * {{.PAGE_SIZE}})"
+      MAX_MEMORY_BYTES:
+        sh: python -c "print({{.MAX_MEMORY_PAGES}} * {{.PAGE_SIZE}})"
+    cmds:
+      - 'odin build . -o:speed -target:js_wasm32 -out:web/box2d.wasm -target-features:"bulk-memory,simd128" -extra-linker-flags:"--export-table --import-memory --initial-memory={{.INITIAL_MEMORY_BYTES}} --max-memory={{.MAX_MEMORY_BYTES}}"'
+
+  copy_web_assets:
+    vars:
+      WGPU_JS: '{{.ODIN_ROOT}}/vendor/wgpu/wgpu.js'
+      ODIN_JS: '{{.ODIN_ROOT}}/core/sys/wasm/js/odin.js'
+      NAIS_JS: '../../nais.js'
+    sources:
+      - '{{.WGPU_JS}}'
+      - '{{.ODIN_JS}}'
+      - '{{.NAIS_JS}}'
+    generates:
+      - web/wgpu.js 
+      - web/odin.js
+      - web/nais.js
+    cmds:
+      - 'cp {{.WGPU_JS}} web/wgpu.js'
+      - 'cp {{.ODIN_JS}} web/odin.js'
+      - 'cp {{.NAIS_JS}} web/nais.js'

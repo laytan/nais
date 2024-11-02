@@ -3,7 +3,6 @@ The bunnymark example with actual physics!
 */
 package main
 
-import      "core:dynlib"
 import      "core:fmt"
 import      "core:log"
 import      "core:math"
@@ -11,15 +10,16 @@ import      "core:math/linalg"
 import      "core:math/rand"
 import      "core:strconv"
 import sa   "core:container/small_array"
-import "core:encoding/cbor"
+import      "core:encoding/cbor"
 
 import b2   "vendor:box2d"
 
-import nais "../../b"
+import nais "../.."
 
 MAX_BUNNIES  :: 50_000
 BUNNY_WIDTH  :: 16
 BUNNY_HEIGHT :: 32
+HOT_RELOAD   :: #config(HOT_RELOAD, true)
 
 Bunny :: struct {
 	body:     b2.BodyId,
@@ -27,11 +27,11 @@ Bunny :: struct {
 }
 
 Bunny_Ser :: struct {
-	color:            u32,
 	transform:        b2.Transform,
+	linear_velocity:  [2]f32,
+	color:            u32,
 	angular_damping:  f32,
 	angular_velocity: f32,
-	linear_velocity:  [2]f32,
 }
 
 Bound :: struct {
@@ -39,24 +39,19 @@ Bound :: struct {
 	shape: b2.ShapeId,
 }
 
-// hot reload exe keeps track and recompiles the game into a dll
-// retrieve event handler, trigger "serialize"
-// set event handler to one from dll, trigger "deserialize"
+state: struct {
+	bunnies_ser: [dynamic]Bunny_Ser,
+
+	bunnies:     sa.Small_Array(MAX_BUNNIES, Bunny) `cbor:"-"`,
+	bunny:       nais.Sprite                        `cbor:"-"`,
+	mouse_down:  bool                               `cbor:"-"`,
+	mouse_pos:   [2]f32                             `cbor:"-"`,
+	world_id:    b2.WorldId                         `cbor:"-"`,
+	bounds:      [4]Bound                           `cbor:"-"`,
+}
 
 main :: proc() {
 	context.logger = log.create_console_logger(.Info)
-
-	@(static)
-	state: struct {
-		bunnies:     sa.Small_Array(MAX_BUNNIES, Bunny) `cbor:"-"`,
-		bunnies_ser: [dynamic]Bunny_Ser,
-		bunny:       nais.Sprite,
-		mouse_down:  bool,
-		mouse_pos:   [2]f32,
-		world_id:    b2.WorldId `cbor:"-"`,
-		bounds:      [4]Bound   `cbor:"-"`,
-		version:     int,
-	}
 
 	b2.SetLengthUnitsPerMeter(BUNNY_WIDTH)
 
@@ -95,71 +90,79 @@ main :: proc() {
 		b2.Shape_SetPolygon(state.bounds[3].shape, b2.MakeBox(sz.x, 20))
 	}
 
-	nais.run("nais - box2d", {800, 450}, {.VSync, .Windowed_Fullscreen}, proc(ev: nais.Event) {
+	nais.run("nais - box2d", {800, 450}, {.VSync, .Windowed_Fullscreen, .Save_Window_State}, proc(ev: nais.Event) {
 		#partial switch e in ev {
-		case nais.Serialize:
-			context.allocator = context.temp_allocator
-
-			for ebunny in state.bunnies.data[:state.bunnies.len] {
-				append(&state.bunnies_ser, Bunny_Ser{
-					color            = ebunny.color,
-					transform        = b2.Body_GetTransform(ebunny.body),
-					angular_damping  = b2.Body_GetAngularDamping(ebunny.body),
-					angular_velocity = b2.Body_GetAngularVelocity(ebunny.body),
-					linear_velocity  = b2.Body_GetLinearVelocity(ebunny.body),
-				})
-			}
-
-			data, err := cbor.marshal(state)
-			assert(err == nil)
-			e.data^ = data
-
-		case nais.Deserialize:
-			assert(state.bunnies.len == 0)
-			assert(len(state.bunnies_ser) == 0)
-
-			err := cbor.unmarshal(string(e.data), &state)
-			assert(err == nil)
-
-			log.info(len(state.bunnies_ser))
-
-			for ebunny in state.bunnies_ser {
-				bunny_extent := b2.Vec2{.5 * BUNNY_WIDTH, .5 * BUNNY_HEIGHT}
-				// These polygons are centered on the origin and when they are added to a body they
-				// will be centered on the body position.
-				bunny_polygon := b2.MakeBox(bunny_extent.x, bunny_extent.y)
-
-				body_def := b2.DefaultBodyDef()
-				body_def.type            = .dynamicBody
-				body_def.position        = ebunny.transform.p
-				body_def.rotation        = ebunny.transform.q
-				body_def.linearVelocity  = ebunny.linear_velocity
-				body_def.angularDamping  = ebunny.angular_damping
-				body_def.angularVelocity = ebunny.angular_velocity
-				body := b2.CreateBody(state.world_id, body_def)
-
-				shape_def := b2.DefaultShapeDef()
-				shape_def.restitution = 1
-				_ = b2.CreatePolygonShape(body, shape_def, bunny_polygon)
-
-				sa.append(&state.bunnies, Bunny{
-					body  = body,
-					color = ebunny.color,
-				})
-			}
-			delete(state.bunnies_ser)
-			state.bunnies_ser = {}
-
-			update_bounds()
-
 		case nais.Initialized:
+			when HOT_RELOAD {
+				hot: {
+					data := nais.persist_get("hot") or_break hot
+
+					log.infof("hot restarting with %m of data", len(data))
+
+					if unmarshal_err := cbor.unmarshal(string(data), &state); unmarshal_err != nil {
+						log.errorf("could not deserialize hot restart: %v", unmarshal_err)
+						break hot
+					}
+
+					for ebunny in state.bunnies_ser {
+						bunny_extent := b2.Vec2{.5 * BUNNY_WIDTH, .5 * BUNNY_HEIGHT}
+						// These polygons are centered on the origin and when they are added to a body they
+						// will be centered on the body position.
+						bunny_polygon := b2.MakeBox(bunny_extent.x, bunny_extent.y)
+
+						body_def := b2.DefaultBodyDef()
+						body_def.type            = .dynamicBody
+						body_def.position        = ebunny.transform.p
+						body_def.rotation        = ebunny.transform.q
+						body_def.linearVelocity  = ebunny.linear_velocity
+						body_def.angularDamping  = ebunny.angular_damping
+						body_def.angularVelocity = ebunny.angular_velocity
+						body := b2.CreateBody(state.world_id, body_def)
+
+						shape_def := b2.DefaultShapeDef()
+						shape_def.restitution = 1
+						_ = b2.CreatePolygonShape(body, shape_def, bunny_polygon)
+
+						sa.append(&state.bunnies, Bunny{
+							body  = body,
+							color = ebunny.color,
+						})
+					}
+					delete(state.bunnies_ser)
+					state.bunnies_ser = {}
+				}
+			}
+
 			update_bounds()
 
 			state.bunny = nais.load_sprite_from_memory(#load("../_resources/wabbit_alpha.png"), .PNG)
 
 			nais.load_font_from_memory("default", #load("../_resources/NotoSans-500-100.ttf"))
 
-			nais.background_set({245, 245, 245, 255})
+			nais.background_set({1, 1, 1, 1})
+
+		case nais.Quit:
+			context.allocator = context.temp_allocator
+
+			when HOT_RELOAD {
+				for ebunny in state.bunnies.data[:state.bunnies.len] {
+					append(&state.bunnies_ser, Bunny_Ser{
+						color            = ebunny.color,
+						transform        = b2.Body_GetTransform(ebunny.body),
+						angular_damping  = b2.Body_GetAngularDamping(ebunny.body),
+						angular_velocity = b2.Body_GetAngularVelocity(ebunny.body),
+						linear_velocity  = b2.Body_GetLinearVelocity(ebunny.body),
+					})
+				}
+
+				data, err := cbor.marshal(state)
+				if err != nil {
+					log.errorf("could not serialize state: %v", err)
+					return
+				}
+
+				nais.persist_set("hot", data)
+			}
 
 		case nais.Resize:
 			update_bounds()
@@ -167,12 +170,11 @@ main :: proc() {
 		case nais.Input:
 			if e.key == .Mouse_Left {
 				state.mouse_down = e.action != .Released
-			} else if e.key == .F5 && e.action == .Pressed {
-				log.info("hot reloading")
-				version := state.version
-				state.version += 1
-				_, ok := dynlib.load_library(fmt.tprintf("./game%v.dylib", version), true)
-				log.assertf(ok, "failed to hot reload ;( %v", dynlib.last_error())
+			}
+
+			if e.key == .F5 {
+				state.bunnies.len = 0
+				nais.quit()
 			}
 
 		case nais.Move:
