@@ -2,7 +2,6 @@
 package nais
 
 import    "core:log"
-import    "core:reflect"
 import    "core:math/linalg"
 import    "core:strings"
 import sa "core:container/small_array"
@@ -206,13 +205,10 @@ _gfx_init_text :: proc() {
 _gfx_text_write_consts :: proc() {
 	queue  := g_window.gfx.queue
 
-	window := window_size()
-	dpi    := dpi()
+	buffer := frame_buffer_size()
+	proj := linalg.matrix_ortho3d(0, buffer.x, buffer.y, 0, -1, 1)
 
-	// Transformation matrix to convert from screen to device pixels and scale based on DPI.
-	transform := linalg.matrix_ortho3d(0, window.x, window.y, 0, -1, 1) * linalg.matrix4_scale_f32({1/dpi.x, 1/dpi.y, 1})
-
-	wgpu.QueueWriteBuffer(queue, g.const_buffer, 0, &transform, size_of(transform))
+	wgpu.QueueWriteBuffer(queue, g.const_buffer, 0, &proj, size_of(proj))
 }
 
 _gfx_text_create_atlas :: proc() {
@@ -344,13 +340,10 @@ _measure_text :: proc(
 		return
 	}
 
-	dpi := dpi()
-	assert(dpi.x == dpi.y, "unimplemented support for weird dpi")
-
 	g.fs.state_count = 1
 	state := fs.__getState(&g.fs)
 	state^ = {
-		size    = size * dpi.x,
+		size    = size,
 		blur    = blur,
 		spacing = spacing,
 		font    = int(font),
@@ -358,7 +351,16 @@ _measure_text :: proc(
 		av      = fs.AlignVertical(align_v),
 	}
 
-	bounds.width = fs.TextBounds(&g.fs, text, pos.x, pos.y, (^[4]f32)(&bounds.min))
+	actual_text, _ := strings.replace_all(text, "\t", "    ", context.temp_allocator)
+
+	assert(!strings.contains(text, "\n"), "unimplemented")
+
+	bounds.width = fs.TextBounds(&g.fs, actual_text, pos.x, pos.y, (^[4]f32)(&bounds.min))
+
+	asc, _, _ := fs.VerticalMetrics(&g.fs)
+	bounds.min.y += asc
+	bounds.max.y += asc
+
 	return
 }
 
@@ -396,9 +398,11 @@ _draw_text :: proc(
 		av      = fs.AlignVertical(align_v),
 	}
 
-	_, _, lh := fs.VerticalMetrics(&g.fs)
+	asc, _, lh := fs.VerticalMetrics(&g.fs)
 
 	pos := pos
+	pos *= dpi.x
+	pos.y += asc
 
 	iter_text := text
 	for line in strings.split_lines_iterator(&iter_text) {
@@ -437,13 +441,10 @@ _draw_text :: proc(
 }
 
 _line_height :: proc(font: Font, size: f32) -> f32 {
-	dpi := dpi()
-	assert(dpi.x == dpi.y, "unimplemented support for weird dpi")
-
 	g.fs.state_count = 1
 	state := fs.__getState(&g.fs)
 	state^ = {
-		size    = size * dpi.x,
+		size    = size,
 		font    = int(font),
 	}
 

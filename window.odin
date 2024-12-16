@@ -1,8 +1,6 @@
 package nais
 
 import "base:runtime"
-import "core:encoding/cbor"
-import "core:log"
 
 import "vendor:wgpu"
 
@@ -31,6 +29,7 @@ g_window := struct {
 			encoder: wgpu.CommandEncoder,
 			pass:    wgpu.RenderPassEncoder,
 			buffers: [dynamic]wgpu.CommandBuffer,
+			scissor: struct {x, y, w, h: u32},
 		},
 	},
 }{}
@@ -310,6 +309,7 @@ icon :: proc() {
 // delta_time :: proc() -> f32 {
 // }
 
+@(require_results)
 dpi :: proc() -> [2]f32 {
 	return _dpi()
 }
@@ -318,10 +318,12 @@ quit :: proc() {
 	_quit()
 }
 
+@(require_results)
 frame_buffer_size :: proc() -> [2]f32 {
 	return _frame_buffer_size()
 }
 
+@(require_results)
 window_size :: proc() -> [2]f32 {
 	return _window_size()
 }
@@ -330,6 +332,7 @@ window_size_set :: proc(size: [2]f32) {
 	unimplemented()
 }
 
+@(require_results)
 clipboard :: proc() -> (string, bool) {
 	unimplemented()
 }

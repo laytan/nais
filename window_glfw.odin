@@ -2,11 +2,12 @@
 #+private
 package nais
 
-import "core:strings"
-import "core:time"
+import "core:encoding/cbor"
 import "core:log"
 import "core:math/linalg"
-import "core:encoding/cbor"
+import "core:strings"
+import "core:sys/posix"
+import "core:time"
 
 import "vendor:glfw"
 import "vendor:wgpu"
@@ -70,13 +71,15 @@ _run :: proc(title: string, size: [2]int, flags: Flags, handler: Event_Handler) 
 	_gfx_init()
 }
 
-import "core:sys/posix"
-
 __initialized_callback :: proc() {
 	handle :: proc "c" (sig: posix.Signal) {
 		context = g_window.ctx
 		log.warnf("[nais]: caught signal %s, quitting", posix.strsignal(sig))
 		_quit()
+
+		posix.signal(.SIGTERM, auto_cast posix.SIG_DFL)
+		posix.signal(.SIGINT,  auto_cast posix.SIG_DFL)
+		posix.signal(.SIGQUIT, auto_cast posix.SIG_DFL)
 	}
 	posix.signal(.SIGTERM, handle)
 	posix.signal(.SIGINT,  handle)
@@ -331,6 +334,10 @@ __key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mo
 
 	nkey    := Key(key)
 	naction := Key_Action(action)
+
+	if action == glfw.REPEAT {
+		naction = .Pressed
+	}
 
 	g_window.handler(Input{
 		key    = nkey,

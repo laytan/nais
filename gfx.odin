@@ -37,11 +37,17 @@ _gfx_swap_renderer :: proc(r: Renderer, flush: bool) {
 	assert(flush, "badly implemented: not flushing")
 
 	if flush && g_window.gfx.curr_renderer != nil && g_window.gfx.curr_renderer != r {
-		f := &g_window.gfx.frame
-		log.debug("flushing renderer", r)
-		g_window.gfx.curr_renderer(Renderer_Flush{pass=f.pass})
+		fresh()
+	}
+	g_window.gfx.curr_renderer = r
+}
 
-		// TODO: probably inefficient.
+fresh :: proc(loc := #caller_location) {
+	f := &g_window.gfx.frame
+
+	if g_window.gfx.curr_renderer != nil {
+		log.info("fresh", loc.procedure)
+		g_window.gfx.curr_renderer(Renderer_Flush{pass=f.pass})
 
 		wgpu.RenderPassEncoderEnd(f.pass)
 		wgpu.RenderPassEncoderRelease(f.pass)
@@ -66,5 +72,33 @@ _gfx_swap_renderer :: proc(r: Renderer, flush: bool) {
 			}),
 		})
 	}
-	g_window.gfx.curr_renderer = r
+
+	wgpu.RenderPassEncoderSetScissorRect(f.pass, f.scissor.x, f.scissor.y, f.scissor.w, f.scissor.h)
+}
+
+scissor :: proc(x, y, w, h: u32) {
+	f := &g_window.gfx.frame
+
+	// TODO:
+	when ODIN_OS == .JS {
+		dpiu :: 0
+	} else {
+		dpi := dpi()
+		assert(dpi.x == dpi.y)
+		dpiu := u32(dpi.x)
+	}
+
+	if f.scissor != {x * dpiu, y * dpiu, w * dpiu, h * dpiu} {
+		f.scissor = {x * dpiu, y * dpiu, w * dpiu, h * dpiu}
+		fresh()
+	}
+}
+
+scissor_end :: proc() {
+	f := &g_window.gfx.frame
+
+	if f.scissor != {0, 0, g_window.gfx.config.width, g_window.gfx.config.height} {
+		f.scissor = {0, 0, g_window.gfx.config.width, g_window.gfx.config.height}
+		fresh()
+	}
 }
