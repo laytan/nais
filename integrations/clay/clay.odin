@@ -2,6 +2,7 @@ package nais_integrations_clay
 
 import "core:log"
 import "core:math/linalg"
+import "core:math"
 
 // TODO: this path is not going to be correct.
 import clay "../../../pkg/clay"
@@ -48,10 +49,14 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 			config := render_command.config.rectangleElementConfig
 
 			if config.cornerRadius != {} {
-				log.errorf("TODO: rounded rectangles: %v", config.cornerRadius)
-			}
-
-			if config.color.a != 0 {
+				radius := config.cornerRadius.topLeft * 2 / min(bounding_box.width, bounding_box.height)
+				nais.draw_rectangle_rounded(
+					{bounding_box.x, bounding_box.y, bounding_box.width, bounding_box.height},
+					radius,
+					8,
+				)
+			} else if config.color.a > 0 {
+				// TODO: add the alpha check in the nais renderer itself.
 				nais.draw_rectangle(
 					position = {bounding_box.x, bounding_box.y},
 					size     = {bounding_box.width, bounding_box.height},
@@ -100,11 +105,51 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 				)
 			}
 
-			if config.cornerRadius.topLeft > 0 || config.cornerRadius.topRight > 0 || config.cornerRadius.bottomLeft > 0 || config.cornerRadius.bottomRight > 0 {
-				log.errorf("TODO: border radius: %v", config)
+			if config.cornerRadius.topLeft > 0 {
+				nais.draw_ring(
+					{math.round(bounding_box.x + config.cornerRadius.topLeft), math.round(bounding_box.y + config.cornerRadius.topLeft)},
+					math.round(config.cornerRadius.topLeft - f32(config.top.width)),
+					config.cornerRadius.topLeft,
+					180,
+					270,
+					10,
+				)
+			}
+			
+			if config.cornerRadius.topRight > 0 {
+				nais.draw_ring(
+					{math.round(bounding_box.x + bounding_box.width - config.cornerRadius.topRight), math.round(bounding_box.y + config.cornerRadius.topRight)},
+					math.round(config.cornerRadius.topRight - f32(config.top.width)),
+					config.cornerRadius.topRight,
+					270,
+					360,
+					10,
+				)
 			}
 
-		case .None: fallthrough
+			if config.cornerRadius.bottomLeft > 0 {
+				nais.draw_ring(
+					{math.round(bounding_box.x + config.cornerRadius.bottomLeft), math.round(bounding_box.y + bounding_box.height - config.cornerRadius.bottomLeft)},
+					math.round(config.cornerRadius.bottomLeft - f32(config.top.width)),
+					config.cornerRadius.bottomLeft,
+					90,
+					180,
+					10,
+				)
+			}
+
+			if config.cornerRadius.bottomRight > 0 {
+				nais.draw_ring(
+					{math.round(bounding_box.x + bounding_box.width - config.cornerRadius.bottomRight), math.round(bounding_box.y + bounding_box.height - config.cornerRadius.bottomRight)},
+					math.round(config.cornerRadius.bottomRight - f32(config.bottom.width)),
+					config.cornerRadius.bottomRight,
+					.1,
+					90,
+					10,
+				)
+			}
+
+		case .None:
 
 		case: 
 			log.errorf("TODO: clay render command: %v", render_command.commandType)
