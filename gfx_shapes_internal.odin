@@ -357,7 +357,6 @@ _draw_rectangle_rounded :: proc(rec: Rect, roundness: f32, segments: int) {
 
 	draws += 5 * 6
 
-	assert(draws < int(max(u32)))
 	sa.append(&g.draws, u32(draws))
 }
 
