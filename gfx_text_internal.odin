@@ -189,7 +189,6 @@ _gfx_init_text :: proc() {
 		},
 		primitive = {
 			topology  = .TriangleList,
-			cullMode  = .None,
 		},
 		multisample = {
 			count = 1,
@@ -357,9 +356,9 @@ _measure_text :: proc(
 
 	bounds.width = fs.TextBounds(&g.fs, actual_text, pos.x, pos.y, (^[4]f32)(&bounds.min))
 
-	asc, _, _ := fs.VerticalMetrics(&g.fs)
-	bounds.min.y += asc
-	bounds.max.y += asc
+	asc, desc, _ := fs.VerticalMetrics(&g.fs)
+	bounds.min.y += asc + desc / 2
+	bounds.max.y += asc + desc / 2
 
 	return
 }
@@ -398,11 +397,11 @@ _draw_text :: proc(
 		av      = fs.AlignVertical(align_v),
 	}
 
-	asc, _, lh := fs.VerticalMetrics(&g.fs)
+	asc, desc, lh := fs.VerticalMetrics(&g.fs)
 
 	pos := pos
 	pos *= dpi.x
-	pos.y += asc
+	pos.y += asc + desc / 2
 
 	iter_text := text
 	for line in strings.split_lines_iterator(&iter_text) {

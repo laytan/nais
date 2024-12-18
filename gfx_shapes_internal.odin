@@ -13,10 +13,12 @@ MAX_VERTICES :: 56_000
 @(private="file")
 g := struct{
 	vertices:  sa.Small_Array(MAX_VERTICES, [2]f32),
+	colors:    sa.Small_Array(MAX_VERTICES, u32),
 	draws:     sa.Small_Array(MAX_VERTICES/3, u32),
 
 	constant_buffer:  wgpu.Buffer,
 	vertex_buffer:    wgpu.Buffer,
+	color_buffer:     wgpu.Buffer,
 	bindgroup:        wgpu.BindGroup,
 	bindgroup_layout: wgpu.BindGroupLayout,
 	module:           wgpu.ShaderModule,
@@ -48,6 +50,12 @@ _gfx_init_shapes :: proc() {
 		label = "Vertices",
 		usage = { .CopyDst, .Vertex },
 		size  = size_of([2]f32) * MAX_VERTICES,
+	})
+
+	g.color_buffer = wgpu.DeviceCreateBuffer(device, &{
+		label = "Colors",
+		usage = { .CopyDst, .Vertex },
+		size  = size_of(u32) * MAX_VERTICES,
 	})
 
 	///////////////////////////////////////////////////////////////////////////////////////////////
@@ -98,7 +106,7 @@ _gfx_init_shapes :: proc() {
 		vertex = {
 			module     = g.module,
 			entryPoint = "vs",
-			bufferCount = 1,
+			bufferCount = 2,
 			buffers = raw_data([]wgpu.VertexBufferLayout{
 				{
 					arrayStride = size_of([2]f32),
@@ -108,6 +116,17 @@ _gfx_init_shapes :: proc() {
 						{
 							format         = .Float32x2,
 							shaderLocation = 0,
+						},
+					}),
+				},
+				{
+					arrayStride = size_of(u32),
+					stepMode = .Vertex,
+					attributeCount = 1,
+					attributes = raw_data([]wgpu.VertexAttribute{
+						{
+							format         = .Uint32,
+							shaderLocation = 1,
 						},
 					}),
 				},
@@ -135,8 +154,8 @@ _gfx_init_shapes :: proc() {
 			},
 		},
 		primitive = {
-			topology = .TriangleStrip,
-			cullMode = .None,
+			topology = .TriangleList,
+			cullMode = .Back,
 
 		},
 		multisample = {
@@ -177,11 +196,15 @@ _shapes_renderer :: proc(ev: Renderer_Event) {
 		queue  := g_window.gfx.queue
 
 		wgpu.QueueWriteBuffer(queue, g.vertex_buffer, 0, &g.vertices.data, uint(size_of([2]f32)*sa.len(g.vertices)))
+		wgpu.QueueWriteBuffer(queue, g.color_buffer, 0, &g.colors.data, uint(size_of(u32)*sa.len(g.colors)))
 
 		wgpu.RenderPassEncoderSetPipeline(e.pass, g.pipeline)
 		wgpu.RenderPassEncoderSetBindGroup(e.pass, 0, g.bindgroup)
 
+		assert(sa.len(g.colors) == sa.len(g.vertices))
+
 		wgpu.RenderPassEncoderSetVertexBuffer(e.pass, 0, g.vertex_buffer, 0, u64(size_of([2]f32)*sa.len(g.vertices)))
+		wgpu.RenderPassEncoderSetVertexBuffer(e.pass, 1, g.color_buffer, 0, u64(size_of(u32)*sa.len(g.colors)))
 
 		// TODO: this can't be how to do it.
 		tally: u32
@@ -191,23 +214,26 @@ _shapes_renderer :: proc(ev: Renderer_Event) {
 		}
 
 		sa.clear(&g.vertices)
+		sa.clear(&g.colors)
 		sa.clear(&g.draws)
 
 	case Renderer_Frame:
 		assert(sa.len(g.vertices) == 0)
 		assert(sa.len(g.draws) == 0)
+		assert(sa.len(g.colors) == 0)
 	}
 }
 
-_draw_triangle :: proc(points: [3][2]f32) {
+_draw_triangle :: proc(points: [3][2]f32, color: u32) {
 	_gfx_swap_renderer(_shapes_renderer, true)
 
 	points := points
 	sa.append_elems(&g.vertices, ..points[:])
+	sa.append_elems(&g.colors, ..[]u32{color, color, color})
 	sa.append(&g.draws, 3)
 }
 
-_draw_triangle_strip :: proc(points: [][2]f32) {
+_draw_triangle_strip :: proc(points: [][2]f32, color: u32) {
 	if len(points) < 3 {
 		return
 	}
@@ -234,10 +260,14 @@ _draw_triangle_strip :: proc(points: [][2]f32) {
 		draws += 3
 	}
 
+	for _ in 0..<draws {
+		sa.append(&g.colors, color)
+	}
+
 	sa.append(&g.draws, draws)
 }
 
-_draw_line :: proc(start, end: [2]f32, thick: f32) {
+_draw_line :: proc(start, end: [2]f32, thick: f32, color: u32) {
 	delta  := end - start
 	length := linalg.length(delta)
 
@@ -250,7 +280,7 @@ _draw_line :: proc(start, end: [2]f32, thick: f32) {
 			{start.x + radius.x, start.y + radius.y},
 			{end.x - radius.x, end.y - radius.y},
 			{end.x + radius.x, end.y + radius.y},
-		})
+		}, color)
 	}
 }
 
@@ -261,10 +291,10 @@ Rect :: struct {
 }
 
 // rectangle rounded, ring
-_draw_rectangle_rounded :: proc(rec: Rect, roundness: f32, segments: int) {
+_draw_rectangle_rounded :: proc(rec: Rect, roundness: f32, segments: int, color: u32) {
 	if roundness <= 0 || rec.w < 1 || rec.h < 1 {
 		// TODO: color
-		draw_rectangle({rec.x, rec.y}, {rec.w, rec.h}, 0xFF000000)
+		draw_rectangle({rec.x, rec.y}, {rec.w, rec.h}, color)
 		return
 	}
 
@@ -357,10 +387,14 @@ _draw_rectangle_rounded :: proc(rec: Rect, roundness: f32, segments: int) {
 
 	draws += 5 * 6
 
+	for _ in 0..<draws {
+		sa.append(&g.colors, color)
+	}
+
 	sa.append(&g.draws, u32(draws))
 }
 
-_draw_circle_sector :: proc(center: [2]f32, radius, start_angle, end_angle: f32, segments: int) {
+_draw_circle_sector :: proc(center: [2]f32, radius, start_angle, end_angle: f32, segments: int, color: u32) {
 	_gfx_swap_renderer(_shapes_renderer, true)
 
 	radius := radius
@@ -397,10 +431,15 @@ _draw_circle_sector :: proc(center: [2]f32, radius, start_angle, end_angle: f32,
 		angle += step_length
 	}
 
-	sa.append_elem(&g.draws, u32(segments * 3))
+	draws := u32(segments * 3)
+	for _ in 0..<draws {
+		sa.append(&g.colors, color)
+	}
+
+	sa.append_elem(&g.draws, draws)
 }
 
-_draw_ring :: proc(center: [2]f32, inner_radius, outer_radius, start_angle, end_angle: f32, segments: int) {
+_draw_ring :: proc(center: [2]f32, inner_radius, outer_radius, start_angle, end_angle: f32, segments: int, color: u32) {
 	if start_angle == end_angle {
 		return
 	}
@@ -411,7 +450,7 @@ _draw_ring :: proc(center: [2]f32, inner_radius, outer_radius, start_angle, end_
 	}
 
 	if inner_radius <= 0 {
-		_draw_circle_sector(center, outer_radius, start_angle, end_angle, segments)
+		_draw_circle_sector(center, outer_radius, start_angle, end_angle, segments, color)
 		return
 	}
 
@@ -447,5 +486,10 @@ _draw_ring :: proc(center: [2]f32, inner_radius, outer_radius, start_angle, end_
 		angle += step_length
 	}
 
-	sa.append_elem(&g.draws, u32(segments * 6))
+	draws := u32(segments * 6)
+	for _ in 0..<draws {
+		sa.append(&g.colors, color)
+	}
+
+	sa.append_elem(&g.draws, draws)
 }

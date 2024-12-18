@@ -18,12 +18,19 @@ measure_text :: proc "c" (text: ^clay.String, config: ^clay.TextElementConfig) -
 		size    = f32(config.fontSize),
 		font    = nais.Font(config.fontId),
 		spacing = f32(config.letterSpacing),
+		align_v = .Baseline,
 	)
 
 	return {
 		width  = bounds.width,
 		height = bounds.max.y - bounds.min.y,
 	}
+}
+
+color :: proc(color: [4]f32) -> u32 {
+	color := color
+	color = color.bgra
+	return transmute(u32)linalg.array_cast(color, u8)
 }
 
 render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
@@ -43,6 +50,7 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 				color   = linalg.array_cast(config.textColor, u8),
 				spacing = f32(config.letterSpacing),
 				font    = nais.Font(config.fontId),
+				align_v = .Baseline,
 			)
 
 		case .Rectangle:
@@ -54,13 +62,14 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 					{bounding_box.x, bounding_box.y, bounding_box.width, bounding_box.height},
 					radius,
 					8,
+					color(config.color),
 				)
 			} else if config.color.a > 0 {
 				// TODO: add the alpha check in the nais renderer itself.
 				nais.draw_rectangle(
 					position = {bounding_box.x, bounding_box.y},
 					size     = {bounding_box.width, bounding_box.height},
-					color    = transmute(u32)linalg.array_cast(config.color, u8),
+					color    = color(config.color),
 				)
 			}
 
@@ -77,7 +86,7 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 				nais.draw_rectangle(
 					position = {bounding_box.x, bounding_box.y + config.cornerRadius.topLeft},
 					size     = {f32(config.left.width), bounding_box.height - config.cornerRadius.topLeft - config.cornerRadius.bottomLeft},
-					color    = transmute(u32)linalg.array_cast(config.left.color, u8),
+					color    = color(config.left.color),
 				)
 			}
 
@@ -85,7 +94,7 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 				nais.draw_rectangle(
 					position = {bounding_box.x + bounding_box.width - f32(config.right.width), bounding_box.y + config.cornerRadius.topRight},
 					size     = {f32(config.right.width), bounding_box.height - config.cornerRadius.topRight - config.cornerRadius.bottomRight},
-					color    = transmute(u32)linalg.array_cast(config.right.color, u8),
+					color    = color(config.right.color),
 				)
 			}
 
@@ -93,7 +102,7 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 				nais.draw_rectangle(
 					position = {bounding_box.x + config.cornerRadius.topLeft, bounding_box.y},
 					size     = {bounding_box.width - config.cornerRadius.topLeft - config.cornerRadius.topRight, f32(config.top.width)},
-					color    = transmute(u32)linalg.array_cast(config.top.color, u8),
+					color    = color(config.top.color),
 				)
 			}
 
@@ -101,7 +110,7 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 				nais.draw_rectangle(
 					position = {bounding_box.x + config.cornerRadius.bottomLeft, bounding_box.y + bounding_box.height - f32(config.bottom.width)},
 					size     = {bounding_box.width - config.cornerRadius.bottomLeft - config.cornerRadius.bottomRight, f32(config.bottom.width)},
-					color    = transmute(u32)linalg.array_cast(config.bottom.color, u8),
+					color    = color(config.bottom.color),
 				)
 			}
 
@@ -113,6 +122,7 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 					180,
 					270,
 					10,
+					color(config.top.color),
 				)
 			}
 			
@@ -124,6 +134,7 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 					270,
 					360,
 					10,
+					color(config.top.color),
 				)
 			}
 
@@ -135,6 +146,7 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 					90,
 					180,
 					10,
+					color(config.bottom.color),
 				)
 			}
 
@@ -146,6 +158,7 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 					.1,
 					90,
 					10,
+					color(config.bottom.color),
 				)
 			}
 
