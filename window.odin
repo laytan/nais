@@ -22,6 +22,7 @@ g_window := struct {
 		config:        wgpu.SurfaceConfiguration,
 		queue:         wgpu.Queue,
 		background:    wgpu.Color,
+		camera:        Maybe(Camera),
 
 		frame: struct {
 			texture: wgpu.SurfaceTexture,

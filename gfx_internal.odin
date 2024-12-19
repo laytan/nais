@@ -78,7 +78,6 @@ _gfx_init_default_renderers :: proc() {
 // TODO: temporary.
 
 _gfx_frame :: proc() {
-	log.info("frame")
 	curr_texture := wgpu.SurfaceGetCurrentTexture(g_window.gfx.surface)
 	curr_view    := wgpu.TextureCreateView(curr_texture.texture)
 
@@ -111,6 +110,7 @@ _gfx_frame :: proc() {
 	}
 	wgpu.RenderPassEncoderSetScissorRect(g_window.gfx.frame.pass, g_window.gfx.frame.scissor.x, g_window.gfx.frame.scissor.y, g_window.gfx.frame.scissor.w, g_window.gfx.frame.scissor.h)
 	g_window.gfx.frame.buffers.allocator = context.temp_allocator
+	// TODO: current renderer on frame struct
 	g_window.gfx.curr_renderer = nil
 
 	for r in g_window.gfx.renderers {
@@ -136,4 +136,8 @@ _gfx_frame_end :: proc() {
 	wgpu.SurfacePresent(g_window.gfx.surface)
 	wgpu.TextureViewRelease(f.view)
 	wgpu.TextureRelease(f.texture.texture)
+
+	g_window.gfx.frame = {}
+	g_window.gfx.curr_renderer = nil
+	// TODO: current renderer on frame
 }

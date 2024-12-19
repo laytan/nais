@@ -230,13 +230,9 @@ _gfx_init_sprite :: proc() {
 _gfx_sprite_write_consts :: proc() {
 	queue  := g_window.gfx.queue
 
-	window := window_size()
-
-	transformation := linalg.matrix_ortho3d(0, window.x, window.y, 0, -1, 1)// * linalg.matrix4_scale_f32({1/dpi.x, 1/dpi.y, 1})
-
 	constants := Constants{ 
 		texture_size   = { 1. / f32(g.rp.width), 1. / f32(g.rp.height) },
-		transformation = transformation,
+		transformation = _camera_matrix(window_size(), 1),
 	}
 
 	wgpu.QueueWriteBuffer(queue, g.constant_buffer, 0, &constants, size_of(constants))
