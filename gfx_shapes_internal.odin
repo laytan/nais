@@ -89,8 +89,8 @@ _gfx_init_shapes :: proc() {
 	///////////////////////////////////////////////////////////////////////////////////////////////
 
 	g.module = wgpu.DeviceCreateShaderModule(device, &{
-		nextInChain = &wgpu.ShaderModuleWGSLDescriptor{
-			sType = .ShaderModuleWGSLDescriptor,
+		nextInChain = &wgpu.ShaderSourceWGSL{
+			sType = .ShaderSourceWGSL,
 			code  = #load("gfx_shapes.wgsl"),
 		},
 	})
@@ -221,6 +221,10 @@ _shapes_renderer :: proc(ev: Renderer_Event) {
 }
 
 _draw_triangle :: proc(points: [3][2]f32, color: u32) {
+	if color & 0xFF000000 == 0 {
+		return
+	}
+
 	_gfx_swap_renderer(_shapes_renderer, true)
 
 	points := points
@@ -231,6 +235,10 @@ _draw_triangle :: proc(points: [3][2]f32, color: u32) {
 
 _draw_triangle_strip :: proc(points: [][2]f32, color: u32) {
 	if len(points) < 3 {
+		return
+	}
+
+	if color & 0xFF000000 == 0 {
 		return
 	}
 
@@ -288,8 +296,11 @@ Rect :: struct {
 
 // rectangle rounded, ring
 _draw_rectangle_rounded :: proc(rec: Rect, roundness: f32, segments: int, color: u32) {
+	if color & 0xFF000000 == 0 {
+		return
+	}
+
 	if roundness <= 0 || rec.w < 1 || rec.h < 1 {
-		// TODO: color
 		draw_rectangle({rec.x, rec.y}, {rec.w, rec.h}, color)
 		return
 	}
@@ -391,6 +402,14 @@ _draw_rectangle_rounded :: proc(rec: Rect, roundness: f32, segments: int, color:
 }
 
 _draw_circle_sector :: proc(center: [2]f32, radius, start_angle, end_angle: f32, segments: int, color: u32) {
+	if radius == 0 {
+		return
+	}
+
+	if color & 0xFF000000 == 0 {
+		return
+	}
+
 	_gfx_swap_renderer(_shapes_renderer, true)
 
 	radius := radius
@@ -437,6 +456,10 @@ _draw_circle_sector :: proc(center: [2]f32, radius, start_angle, end_angle: f32,
 
 _draw_ring :: proc(center: [2]f32, inner_radius, outer_radius, start_angle, end_angle: f32, segments: int, color: u32) {
 	if start_angle == end_angle {
+		return
+	}
+
+	if color & 0xFF000000 == 0 {
 		return
 	}
 

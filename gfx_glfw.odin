@@ -11,7 +11,7 @@ __gfx_init :: proc() {
 	level := wgpu.LogLevel.Debug if .Debug_Renderer in g_window.flags else wgpu.LogLevel.Warn
 	wgpu.SetLogLevel(level)
 
-	wgpu.SetLogCallback(proc "c" (wgpulevel: wgpu.LogLevel, message: cstring, user: rawptr) {
+	wgpu.SetLogCallback(proc "c" (wgpulevel: wgpu.LogLevel, message: string, user: rawptr) {
 		context = g_window.ctx
 		logger := context.logger
 		if logger.procedure == nil {

@@ -18,10 +18,10 @@ _gfx_init :: proc() {
 	wgpu.InstanceRequestAdapter(instance, &{
 		compatibleSurface = g_window.gfx.surface,
 		powerPreference = .LowPower if .Low_Power in g_window.flags else .HighPerformance,
-	}, _gfx_adapter_callback)
+	}, { callback = _gfx_adapter_callback })
 }
 
-_gfx_adapter_callback :: proc "c" (status: wgpu.RequestAdapterStatus, adapter: wgpu.Adapter, message: cstring, _: rawptr) {
+_gfx_adapter_callback :: proc "c" (status: wgpu.RequestAdapterStatus, adapter: wgpu.Adapter, message: string, _, _: rawptr) {
 	context = g_window.ctx
 
 	if status != .Success {
@@ -30,25 +30,23 @@ _gfx_adapter_callback :: proc "c" (status: wgpu.RequestAdapterStatus, adapter: w
 	assert(adapter != nil)
 
 	wgpu.AdapterRequestDevice(adapter, &{
-		deviceLostCallback = _gfx_device_lost_callback,
-		uncapturedErrorCallbackInfo = {
-			callback = _gfx_uncaptured_error_callback,
-		},
-	}, _gfx_device_callback)
+		deviceLostCallbackInfo = { callback = _gfx_device_lost_callback },
+		uncapturedErrorCallbackInfo = { callback = _gfx_uncaptured_error_callback },
+	}, { callback = _gfx_device_callback })
 }
 
-_gfx_device_lost_callback :: proc "c" (reason: wgpu.DeviceLostReason, message: cstring, _: rawptr) {
+_gfx_device_lost_callback :: proc "c" (device: wgpu.Device, reason: wgpu.DeviceLostReason, message: string, _, _: rawptr) {
 	// NOTE: should we request a new device?
 	context = g_window.ctx
 	log.panicf("[nais][wgpu]: device lost because of %v: %v", reason, message)
 }
 
-_gfx_uncaptured_error_callback :: proc "c" (type: wgpu.ErrorType, message: cstring, _: rawptr) {
+_gfx_uncaptured_error_callback :: proc "c" (device: wgpu.Device, type: wgpu.ErrorType, message: string, _, _: rawptr) {
 	context = g_window.ctx
 	log.panicf("[nais][wgpu]: uncaptured error %v: %v", type, message)
 }
 
-_gfx_device_callback :: proc "c" (status: wgpu.RequestDeviceStatus, device: wgpu.Device, message: cstring, _: rawptr) {
+_gfx_device_callback :: proc "c" (status: wgpu.RequestDeviceStatus, device: wgpu.Device, message: string, _, _: rawptr) {
 	context = g_window.ctx
 
 	if status != .Success {
@@ -62,6 +60,7 @@ _gfx_device_callback :: proc "c" (status: wgpu.RequestDeviceStatus, device: wgpu
 	wgpu.SurfaceConfigure(g_window.gfx.surface, &g_window.gfx.config)
 
 	_gfx_init_default_renderers()
+
 	_initialized_callback()
 }
 
@@ -80,10 +79,6 @@ _gfx_init_default_renderers :: proc() {
 _gfx_frame :: proc() {
 	curr_texture := wgpu.SurfaceGetCurrentTexture(g_window.gfx.surface)
 	curr_view    := wgpu.TextureCreateView(curr_texture.texture)
-
-	// NOTE: I've never hit this?
-	assert(!curr_texture.suboptimal, "TODO")
-	assert(curr_texture.status == .Success, "TODO")
 
 	// TODO: probably inefficient.
 
@@ -108,7 +103,7 @@ _gfx_frame :: proc() {
 		pass    = pass,
 		scissor = {0, 0, g_window.gfx.config.width, g_window.gfx.config.height},
 	}
-	wgpu.RenderPassEncoderSetScissorRect(g_window.gfx.frame.pass, g_window.gfx.frame.scissor.x, g_window.gfx.frame.scissor.y, g_window.gfx.frame.scissor.w, g_window.gfx.frame.scissor.h)
+	wgpu.RenderPassEncoderSetScissorRect(g_window.gfx.frame.pass, g_window.gfx.frame.scissor[0], g_window.gfx.frame.scissor[1], g_window.gfx.frame.scissor[2], g_window.gfx.frame.scissor[3])
 	g_window.gfx.frame.buffers.allocator = context.temp_allocator
 	// TODO: current renderer on frame struct
 	g_window.gfx.curr_renderer = nil

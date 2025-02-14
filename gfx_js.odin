@@ -11,8 +11,8 @@ __gfx_get_surface :: proc(instance: wgpu.Instance) -> wgpu.Surface {
 	return wgpu.InstanceCreateSurface(
 		instance,
 		&wgpu.SurfaceDescriptor{
-			nextInChain = &wgpu.SurfaceDescriptorFromCanvasHTMLSelector{
-				sType = .SurfaceDescriptorFromCanvasHTMLSelector,
+			nextInChain = &wgpu.SurfaceSourceCanvasHTMLSelector{
+				sType = .SurfaceSourceCanvasHTMLSelector,
 				selector = "#wgpu-canvas",
 			},
 		},

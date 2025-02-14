@@ -9,7 +9,7 @@ import clay "../../../pkg/clay"
 
 import nais "../.."
 
-measure_text :: proc "c" (text: ^clay.String, config: ^clay.TextElementConfig) -> clay.Dimensions {
+measure_text :: proc "c" (text: clay.StringSlice, config: ^clay.TextElementConfig, _: rawptr) -> clay.Dimensions {
 	context = nais.default_context()
 
 	bounds := nais.measure_text(
@@ -18,7 +18,7 @@ measure_text :: proc "c" (text: ^clay.String, config: ^clay.TextElementConfig) -
 		size    = f32(config.fontSize),
 		font    = nais.Font(config.fontId),
 		spacing = f32(config.letterSpacing),
-		align_v = .Baseline,
+		align_v = .Top,
 	)
 
 	return {
@@ -40,8 +40,8 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 
 		#partial switch render_command.commandType {
 		case .Text:
-			config := render_command.config.textElementConfig
-			text   := string(render_command.text.chars[:render_command.text.length])
+			config := render_command.renderData.text
+			text   := string(config.stringContents.chars[:config.stringContents.length])
 
 			nais.draw_text(
 				text    = text,
@@ -50,11 +50,11 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 				color   = linalg.array_cast(config.textColor, u8),
 				spacing = f32(config.letterSpacing),
 				font    = nais.Font(config.fontId),
-				align_v = .Baseline,
+				align_v = .Top,
 			)
 
 		case .Rectangle:
-			config := render_command.config.rectangleElementConfig
+			config := render_command.renderData.rectangle
 
 			if config.cornerRadius != {} {
 				radius := config.cornerRadius.topLeft * 2 / min(bounding_box.width, bounding_box.height)
@@ -62,14 +62,13 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 					{bounding_box.x, bounding_box.y, bounding_box.width, bounding_box.height},
 					radius,
 					8,
-					color(config.color),
+					color(config.backgroundColor),
 				)
-			} else if config.color.a > 0 {
-				// TODO: add the alpha check in the nais renderer itself.
+			} else {
 				nais.draw_rectangle(
 					position = {bounding_box.x, bounding_box.y},
 					size     = {bounding_box.width, bounding_box.height},
-					color    = color(config.color),
+					color    = color(config.backgroundColor),
 				)
 			}
 
@@ -80,85 +79,85 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 			nais.scissor_end()
 
 		case .Border:
-			config := render_command.config.borderElementConfig
+			config := render_command.renderData.border
 
-			if config.left.width > 0 {
+			if config.width.left > 0 {
 				nais.draw_rectangle(
 					position = {bounding_box.x, bounding_box.y + config.cornerRadius.topLeft},
-					size     = {f32(config.left.width), bounding_box.height - config.cornerRadius.topLeft - config.cornerRadius.bottomLeft},
-					color    = color(config.left.color),
+					size     = {f32(config.width.left), bounding_box.height - config.cornerRadius.topLeft - config.cornerRadius.bottomLeft},
+					color    = color(config.color),
 				)
 			}
 
-			if config.right.width > 0 {
+			if config.width.right > 0 {
 				nais.draw_rectangle(
-					position = {bounding_box.x + bounding_box.width - f32(config.right.width), bounding_box.y + config.cornerRadius.topRight},
-					size     = {f32(config.right.width), bounding_box.height - config.cornerRadius.topRight - config.cornerRadius.bottomRight},
-					color    = color(config.right.color),
+					position = {bounding_box.x + bounding_box.width - f32(config.width.right), bounding_box.y + config.cornerRadius.topRight},
+					size     = {f32(config.width.right), bounding_box.height - config.cornerRadius.topRight - config.cornerRadius.bottomRight},
+					color    = color(config.color),
 				)
 			}
 
-			if config.top.width > 0 {
+			if config.width.top > 0 {
 				nais.draw_rectangle(
 					position = {bounding_box.x + config.cornerRadius.topLeft, bounding_box.y},
-					size     = {bounding_box.width - config.cornerRadius.topLeft - config.cornerRadius.topRight, f32(config.top.width)},
-					color    = color(config.top.color),
+					size     = {bounding_box.width - config.cornerRadius.topLeft - config.cornerRadius.topRight, f32(config.width.top)},
+					color    = color(config.color),
 				)
 			}
 
-			if config.bottom.width > 0 {
+			if config.width.bottom > 0 {
 				nais.draw_rectangle(
-					position = {bounding_box.x + config.cornerRadius.bottomLeft, bounding_box.y + bounding_box.height - f32(config.bottom.width)},
-					size     = {bounding_box.width - config.cornerRadius.bottomLeft - config.cornerRadius.bottomRight, f32(config.bottom.width)},
-					color    = color(config.bottom.color),
+					position = {bounding_box.x + config.cornerRadius.bottomLeft, bounding_box.y + bounding_box.height - f32(config.width.bottom)},
+					size     = {bounding_box.width - config.cornerRadius.bottomLeft - config.cornerRadius.bottomRight, f32(config.width.bottom)},
+					color    = color(config.color),
 				)
 			}
 
 			if config.cornerRadius.topLeft > 0 {
 				nais.draw_ring(
 					{math.round(bounding_box.x + config.cornerRadius.topLeft), math.round(bounding_box.y + config.cornerRadius.topLeft)},
-					math.round(config.cornerRadius.topLeft - f32(config.top.width)),
+					math.round(config.cornerRadius.topLeft - f32(config.width.top)),
 					config.cornerRadius.topLeft,
 					180,
 					270,
 					10,
-					color(config.top.color),
+					color(config.color),
 				)
 			}
 			
 			if config.cornerRadius.topRight > 0 {
 				nais.draw_ring(
 					{math.round(bounding_box.x + bounding_box.width - config.cornerRadius.topRight), math.round(bounding_box.y + config.cornerRadius.topRight)},
-					math.round(config.cornerRadius.topRight - f32(config.top.width)),
+					math.round(config.cornerRadius.topRight - f32(config.width.top)),
 					config.cornerRadius.topRight,
 					270,
 					360,
 					10,
-					color(config.top.color),
+					color(config.color),
 				)
 			}
 
 			if config.cornerRadius.bottomLeft > 0 {
 				nais.draw_ring(
 					{math.round(bounding_box.x + config.cornerRadius.bottomLeft), math.round(bounding_box.y + bounding_box.height - config.cornerRadius.bottomLeft)},
-					math.round(config.cornerRadius.bottomLeft - f32(config.top.width)),
+					math.round(config.cornerRadius.bottomLeft - f32(config.width.top)),
 					config.cornerRadius.bottomLeft,
 					90,
 					180,
 					10,
-					color(config.bottom.color),
+					color(config.color),
 				)
 			}
 
 			if config.cornerRadius.bottomRight > 0 {
 				nais.draw_ring(
 					{math.round(bounding_box.x + bounding_box.width - config.cornerRadius.bottomRight), math.round(bounding_box.y + bounding_box.height - config.cornerRadius.bottomRight)},
-					math.round(config.cornerRadius.bottomRight - f32(config.bottom.width)),
+					math.round(config.cornerRadius.bottomRight - f32(config.width.bottom)),
 					config.cornerRadius.bottomRight,
 					.1,
 					90,
 					10,
-					color(config.bottom.color),
+					color(config.color),
 				)
 			}
 

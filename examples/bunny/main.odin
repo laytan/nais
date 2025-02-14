@@ -44,7 +44,7 @@ main :: proc() {
 	@(static) mouse_down: bool
 	@(static) mouse_pos:  [2]f32
 
-	nais.run("nais - bunnymark", {800, 450}, {.Windowed_Fullscreen}, proc(ev: nais.Event) {
+	nais.run("nais - bunnymark", {800, 450}, {.VSync, .Windowed_Fullscreen}, proc(ev: nais.Event) {
 		#partial switch e in ev {
 		case nais.Initialized:
 			log.info("init")
@@ -97,9 +97,6 @@ main :: proc() {
 				nais.draw_sprite(bunny, ebunny.position, color=ebunny.color)
 			}
 
-			nais.draw_rectangle(0, {window_size.x, 40}, 0xFFFFFFFF)
-			nais.draw_text(fmt.tprintf("bunnies: %v", bunnies.len), {120, 10}, size=20, color={0, 255, 0, 255}, align_v=.Top)
-
 			// FPS over last 30 frames.
 			@static frame_times: [30]f32
 			@static frame_times_idx: int
@@ -112,9 +109,15 @@ main :: proc() {
 				frame_time += time
 			}
 
-			buf: [24]byte
-			fps := strconv.itoa(buf[:], int(math.round(len(frame_times)/frame_time)))
-			nais.draw_text(fps, {10, 10}, size=20, color={0, 255, 0, 255}, align_v=.Top)
+			fps := int(math.round(len(frame_times)/frame_time))
+
+			text := fmt.tprintf("bunnies: %v, fps: %v", bunnies.len, fps)
+			pos := [2]f32{10, 10}
+			padding := f32(5)
+			bounds := nais.measure_text(text, pos+padding, size=20)
+
+			nais.draw_rectangle(bounds.min - padding, bounds.max - bounds.min + (padding * 2), 0xFF000000)
+			nais.draw_text(text, pos+padding, size=20, color=255)
 		}
 	})
 }

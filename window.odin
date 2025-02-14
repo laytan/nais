@@ -30,7 +30,7 @@ g_window := struct {
 			encoder: wgpu.CommandEncoder,
 			pass:    wgpu.RenderPassEncoder,
 			buffers: [dynamic]wgpu.CommandBuffer,
-			scissor: struct {x, y, w, h: u32},
+			scissor: [4]u32,
 		},
 	},
 }{}

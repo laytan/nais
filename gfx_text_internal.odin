@@ -2,7 +2,6 @@
 package nais
 
 import    "core:log"
-import    "core:math/linalg"
 import    "core:strings"
 import sa "core:container/small_array"
 
@@ -54,23 +53,24 @@ _gfx_init_text :: proc() {
 	fs.Init(&g.fs, DEFAULT_FONT_ATLAS_SIZE, DEFAULT_FONT_ATLAS_SIZE, .TOPLEFT)
 
 	g.font_instances_buf = wgpu.DeviceCreateBuffer(device, &{
-		label = "Font Instance Buffer",
+		label = "[nais][text]: font instance",
 		usage = { .Vertex, .CopyDst },
 		size = size_of(g.font_instances.data),
 	})
 
 	g.font_index_buf = wgpu.DeviceCreateBufferWithData(device, &{
-		label = "Font Index Buffer",
+		label = "[nais][text]: font index",
 		usage = { .Index, .Uniform },
 	}, []u32{0, 1, 2, 1, 2, 3})
 
 	g.const_buffer = wgpu.DeviceCreateBuffer(device, &{
-		label = "Constant buffer",
+		label = "[nais][text]: constants",
 		usage = { .Uniform, .CopyDst },
 		size  = size_of(matrix[4, 4]f32),
 	})
 
 	g.sampler = wgpu.DeviceCreateSampler(device, &{
+		label         = "[nais][text]: sampler",
 		addressModeU  = .ClampToEdge,
 		addressModeV  = .ClampToEdge,
 		addressModeW  = .ClampToEdge,
@@ -84,6 +84,7 @@ _gfx_init_text :: proc() {
 	})
 
 	g.bind_group_layout = wgpu.DeviceCreateBindGroupLayout(device, &{
+		label = "[nais][text]: bind group layout",
 		entryCount = 3,
 		entries = raw_data([]wgpu.BindGroupLayoutEntry{
 			{
@@ -116,17 +117,20 @@ _gfx_init_text :: proc() {
 	_gfx_text_create_atlas()
 
 	g.module = wgpu.DeviceCreateShaderModule(device, &{
-		nextInChain = &wgpu.ShaderModuleWGSLDescriptor{
-			sType = .ShaderModuleWGSLDescriptor,
+		label = "[nais][text]: shader",
+		nextInChain = &wgpu.ShaderSourceWGSL{
+			sType = .ShaderSourceWGSL,
 			code  = #load("gfx_text.wgsl"),
 		},
 	})
 
 	g.pipeline_layout = wgpu.DeviceCreatePipelineLayout(device, &{
+		label = "[nais][text]: pipeline layout",
 		bindGroupLayoutCount = 1,
 		bindGroupLayouts = &g.bind_group_layout,
 	})
 	g.pipeline = wgpu.DeviceCreateRenderPipeline(device, &{
+		label = "[nais][text]: pipeline",
 		layout = g.pipeline_layout,
 		vertex = {
 			module = g.module,
@@ -216,6 +220,7 @@ _gfx_text_create_atlas :: proc() {
 	device := g_window.gfx.config.device
 
 	g.atlas_texture = wgpu.DeviceCreateTexture(device, &{
+		label = "[nais][text]: atlas texture",
 		usage = { .TextureBinding, .CopyDst },
 		dimension = ._2D,
 		size = { u32(g.fs.width), u32(g.fs.height), 1 },
@@ -223,9 +228,14 @@ _gfx_text_create_atlas :: proc() {
 		mipLevelCount = 1,
 		sampleCount = 1,
 	})
-	g.atlas_texture_view = wgpu.TextureCreateView(g.atlas_texture, nil)
+	g.atlas_texture_view = wgpu.TextureCreateView(g.atlas_texture)
+	// NOTE: unimplemented in wgpu-native.
+	when ODIN_OS == .JS {
+		wgpu.TextureViewSetLabel(g.atlas_texture_view, "[nais][text]: atlas texture view")
+	}
 
 	g.bind_group = wgpu.DeviceCreateBindGroup(device, &{
+		label = "[nais][text]: bind group",
 		layout = g.bind_group_layout,
 		entryCount = 3,
 		entries = raw_data([]wgpu.BindGroupEntry{
@@ -357,10 +367,7 @@ _measure_text :: proc(
 	assert(!strings.contains(text, "\n"), "unimplemented")
 
 	bounds.width = fs.TextBounds(&g.fs, actual_text, pos.x, pos.y, (^[4]f32)(&bounds.min))
-
-	asc, desc, _ := fs.VerticalMetrics(&g.fs)
-	bounds.min.y += asc + desc / 2
-	bounds.max.y += asc + desc / 2
+	bounds.min.y, bounds.max.y = fs.LineBounds(&g.fs, pos.y)
 
 	return
 }
@@ -383,6 +390,10 @@ _draw_text :: proc(
 		return
 	}
 
+	if color.a == 0 {
+		return
+	}
+
 	_gfx_swap_renderer(_text_renderer, flush)
 
 	dpi := dpi()
@@ -399,11 +410,10 @@ _draw_text :: proc(
 		av      = fs.AlignVertical(align_v),
 	}
 
-	asc, desc, lh := fs.VerticalMetrics(&g.fs)
+	_, _, lh := fs.VerticalMetrics(&g.fs)
 
 	pos := pos
 	pos *= dpi.x
-	pos.y += asc + desc / 2
 
 	iter_text := text
 	for line in strings.split_lines_iterator(&iter_text) {

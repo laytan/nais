@@ -21,7 +21,7 @@ tasks:
     generates:
       - './box2d'
     cmds:
-      - 'odin build . -o:none -use-separate-modules -lld'
+      - 'odin build . -o:none -extra-linker-flags:"-fuse-ld=ld.mold"'
 
   hot:
     watch: true

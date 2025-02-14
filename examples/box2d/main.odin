@@ -3,6 +3,8 @@ The bunnymark example with actual physics!
 */
 package main
 
+import      "base:runtime"
+
 import      "core:fmt"
 import      "core:log"
 import      "core:math"
@@ -11,6 +13,9 @@ import      "core:math/rand"
 import      "core:strconv"
 import sa   "core:container/small_array"
 import      "core:encoding/cbor"
+
+import clay      "../../../pkg/clay"
+import nais_clay "../../integrations/clay"
 
 import b2   "vendor:box2d"
 
@@ -40,18 +45,27 @@ Bound :: struct {
 }
 
 state: struct {
+	ctx:         runtime.Context `cbor:"-"`,
 	bunnies_ser: [dynamic]Bunny_Ser,
 
+	scroll: [2]f64 `cbor:"-"`,
 	bunnies:     sa.Small_Array(MAX_BUNNIES, Bunny) `cbor:"-"`,
 	bunny:       nais.Sprite                        `cbor:"-"`,
-	mouse_down:  bool                               `cbor:"-"`,
+	mouse_down:     bool                            `cbor:"-"`,
+	mouse_down_now: bool                            `cbor:"-"`,
 	mouse_pos:   [2]f32                             `cbor:"-"`,
 	world_id:    b2.WorldId                         `cbor:"-"`,
 	bounds:      [4]Bound                           `cbor:"-"`,
 }
 
+handle_clay_error :: proc "c" (err: clay.ErrorData) {
+	context = state.ctx
+	log.errorf("[clay][%v]: %v", err.errorType, string(err.errorText.chars[:err.errorText.length]))
+}
+
 main :: proc() {
 	context.logger = log.create_console_logger(.Info)
+	state.ctx = context
 
 	b2.SetLengthUnitsPerMeter(BUNNY_WIDTH)
 
@@ -137,9 +151,19 @@ main :: proc() {
 
 			state.bunny = nais.load_sprite_from_memory(#load("../_resources/wabbit_alpha.png"), .PNG)
 
-			nais.load_font_from_memory("default", #load("../_resources/NotoSans-500-100.ttf"))
+			nais.load_font_from_memory("default", #load("/System/Library/Fonts/Supplemental/Arial.ttf"))
 
 			nais.background_set({1, 1, 1, 1})
+
+			{
+				arena := clay.CreateArenaWithCapacityAndMemory(clay.MinMemorySize(), make([^]byte, clay.MinMemorySize()))
+
+				sz := nais.window_size()
+				clay.Initialize(arena, {sz.x, sz.y}, { handler = handle_clay_error })
+
+				clay.SetMeasureTextFunction(nais_clay.measure_text, nil)
+				clay.SetDebugModeEnabled(true)
+			}
 
 		case nais.Quit:
 			context.allocator = context.temp_allocator
@@ -167,9 +191,13 @@ main :: proc() {
 		case nais.Resize:
 			update_bounds()
 
+			sz := nais.window_size()
+			clay.SetLayoutDimensions({sz.x, sz.y})
+
 		case nais.Input:
 			if e.key == .Mouse_Left {
 				state.mouse_down = e.action != .Released
+				state.mouse_down_now = e.action != .Released
 			}
 
 			if e.key == .F5 {
@@ -180,7 +208,12 @@ main :: proc() {
 		case nais.Move:
 			state.mouse_pos = linalg.array_cast(e.position, f32)
 
+		case nais.Scroll:
+			state.scroll = e.delta
+
 		case nais.Frame:
+			defer state.mouse_down_now = false
+
 			b2.World_Step(state.world_id, e.dt, 4)
 
 			if state.mouse_down {
@@ -230,11 +263,10 @@ main :: proc() {
 			// 	nais.draw_rectangle(position, bound.size, 0xcccccccc, anchor=.5)
 			// }
 
-			bunnies_text := fmt.tprintf("bunnies: %v", state.bunnies.len)
-			measurement  := nais.measure_text(bunnies_text, {10, 10}, size=32, align_v=.Top)
-			nais.draw_rectangle(0, {window_size.x, measurement.max.y-measurement.min.y}, 0xFFFFFFFF)
-			nais.draw_text(bunnies_text, {10, 10}, size=32, color={0, 0, 0, 255}, align_v=.Top)
-
+			// measurement  := nais.measure_text(bunnies_text, {10, 10}, size=32, align_v=.Top)
+			// nais.draw_rectangle(0, {window_size.x, measurement.max.y-measurement.min.y}, 0xFFFFFFFF)
+			// nais.draw_text(bunnies_text, {10, 10}, size=32, color={0, 0, 0, 255}, align_v=.Top)
+			//
 			// FPS over last 30 frames.
 			@static frame_times: [30]f32
 			@static frame_times_idx: int
@@ -254,7 +286,59 @@ main :: proc() {
 			buf[3] = ':'
 			buf[4] = ' '
 			fps_len := len(strconv.itoa(buf[5:], int(math.round(len(frame_times)/frame_time))))
-			nais.draw_text(string(buf[:fps_len+5]), {measurement.max.x + 32, 10}, size=32, color={0, 0, 0, 255}, align_v=.Top)
+			// nais.draw_text(string(buf[:fps_len+5]), {measurement.max.x + 32, 10}, size=32, color={0, 0, 0, 255}, align_v=.Top)
+
+			{
+				clay.SetPointerState(state.mouse_pos, state.mouse_down)
+
+				clay.UpdateScrollContainers(false, linalg.array_cast(state.scroll, f32), e.dt)
+				state.scroll = 0
+
+				clay.BeginLayout()
+				defer {
+					render_commands := clay.EndLayout()
+					nais_clay.render(&render_commands)
+				}
+
+				if clay.UI().configure({
+					layout = { sizing = { width = clay.SizingGrow({}) }, padding = clay.PaddingAll(10), childGap = 20, childAlignment = { y = .Center } },
+					border = { width = { bottom = 2 }, color = {50, 50, 50, 255} },
+					backgroundColor = {0, 0, 0, 125},
+				}) {
+					bunnies_text := fmt.tprintf("bunnies: %v", state.bunnies.len)
+					clay.Text(bunnies_text, clay.TextConfig({ fontSize = 32, textColor = {255, 255, 255, 255} }))
+
+					clay.Text(string(buf[:fps_len+5]), clay.TextConfig({ fontSize = 32, textColor = {255, 255, 255, 255} }))
+
+					if Button("reset") {
+						for ebunny in state.bunnies.data[:state.bunnies.len] {
+							b2.DestroyBody(ebunny.body)
+						}
+						sa.clear(&state.bunnies)
+						nais.persist_set("hot", nil)
+					}
+
+					if Button("debug") {
+						clay.SetDebugModeEnabled(!clay.IsDebugModeEnabled())
+					}
+				}
+			}
 		}
 	})
+}
+
+Button :: proc(text: string) -> bool {
+	hovered: bool
+	if clay.UI().configure({
+		layout = { padding = {10, 10, 5, 5} },
+		cornerRadius = clay.CornerRadiusAll(5),
+		backgroundColor = clay.Hovered() ? {75, 75, 75, 255} : {50, 50, 50, 255},
+		border = { color = {175, 175, 175, 255}, width = clay.BorderWidth{2, 2, 2, 2, 0} },
+	}) {
+		clay.Text(text, clay.TextConfig({ fontSize = 32, textColor = {255, 255, 255, 255} }))
+
+		hovered = clay.Hovered()
+	}
+
+	return hovered && state.mouse_down_now
 }

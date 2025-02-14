@@ -110,7 +110,10 @@ class WasmMemoryInterface {
 	}
 
 	loadCstring(ptr) {
-		const start = this.loadPtr(ptr);
+		return this.loadCstringDirect(this.loadPtr(ptr));
+	}
+
+	loadCstringDirect(start) {
 		if (start == 0) {
 			return null;
 		}
@@ -1259,13 +1262,26 @@ class WebGLInterface {
 };
 
 
-function odinSetupDefaultImports(wasmMemoryInterface, consoleElement, memory, eventQueue, event_temp) {
+function odinSetupDefaultImports(wasmMemoryInterface, consoleElement, memory) {
 	const MAX_INFO_CONSOLE_LINES = 512;
 	let infoConsoleLines = new Array();
 	let currentLine = {};
 	currentLine[false] = "";
 	currentLine[true] = "";
 	let prevIsError = false;
+	
+	let event_temp = {};
+
+	const onEventReceived = (event_data, data, callback) => {
+		event_temp.data = event_data;
+		
+		const exports = wasmMemoryInterface.exports;
+		const odin_ctx = exports.default_context_ptr();
+		
+		exports.odin_dom_do_event_callback(data, callback, odin_ctx);
+		
+		event_temp.data = null;
+	};
 
 	const writeToConsole = (line, isError) => {
 		if (!line) {
@@ -1517,27 +1533,6 @@ function odinSetupDefaultImports(wasmMemoryInterface, consoleElement, memory, ev
 
 					wmi.storeI16(off(2), e.button);
 					wmi.storeU16(off(2), e.buttons);
-				} else if (e instanceof TouchEvent) {
-					// NOTE(laytan): Act as if it is a mouse event, this isn't proper touch support but a middle-ground.
-					if (e.changedTouches && e.changedTouches.length) {
-						const t = e.changedTouches[0];
-						wmi.storeI64(off(8), t.screenX);
-						wmi.storeI64(off(8), t.screenY);
-						wmi.storeI64(off(8), t.clientX);
-						wmi.storeI64(off(8), t.clientY);
-						wmi.storeI64(off(8), t.clientX - e.target.offsetLeft);
-						wmi.storeI64(off(8), t.clientY - e.target.offsetTop);
-						wmi.storeI64(off(8), t.pageX);
-						wmi.storeI64(off(8), t.pageY);
-
-						off(8);
-						off(8);
-
-						wmi.storeU8(off(1), !!e.ctrlKey);
-						wmi.storeU8(off(1), !!e.shiftKey);
-						wmi.storeU8(off(1), !!e.altKey);
-						wmi.storeU8(off(1), !!e.metaKey);
-					}
 				} else if (e instanceof KeyboardEvent) {
 					// Note: those strings are constructed
 					// on the native side from buffers that
@@ -1556,8 +1551,8 @@ function odinSetupDefaultImports(wasmMemoryInterface, consoleElement, memory, ev
 
 					wmi.storeInt(off(W, W), e.key.length)
 					wmi.storeInt(off(W, W), e.code.length)
-					wmi.storeString(off(16, 1), e.key);
-					wmi.storeString(off(16, 1), e.code);
+					wmi.storeString(off(32, 1), e.key);
+					wmi.storeString(off(32, 1), e.code);
 				} else if (e.type === 'scroll') {
 					wmi.storeF64(off(8, 8), window.scrollX);
 					wmi.storeF64(off(8, 8), window.scrollY);
@@ -1615,7 +1610,7 @@ function odinSetupDefaultImports(wasmMemoryInterface, consoleElement, memory, ev
 					event_data.event = e;
 					event_data.name_code = name_code;
 
-					eventQueue.push({event_data: event_data, data: data, callback: callback});
+					onEventReceived(event_data, data, callback);
 				};
 				wasmMemoryInterface.listenerMap[{data: data, callback: callback}] = listener;
 				element.addEventListener(name, listener, !!use_capture);
@@ -1632,7 +1627,7 @@ function odinSetupDefaultImports(wasmMemoryInterface, consoleElement, memory, ev
 					event_data.event = e;
 					event_data.name_code = name_code;
 
-					eventQueue.push({event_data: event_data, data: data, callback: callback});
+					onEventReceived(event_data, data, callback);
 				};
 				wasmMemoryInterface.listenerMap[{data: data, callback: callback}] = listener;
 				element.addEventListener(name, listener, !!use_capture);
@@ -1823,6 +1818,16 @@ function odinSetupDefaultImports(wasmMemoryInterface, consoleElement, memory, ev
 				}
 			},
 
+			set_element_style: (id_ptr, id_len, key_ptr, key_len, value_ptr, value_len) => {
+				let id = wasmMemoryInterface.loadString(id_ptr, id_len);
+				let key = wasmMemoryInterface.loadString(key_ptr, key_len);
+				let value = wasmMemoryInterface.loadString(value_ptr, value_len);
+				let element = getElement(id);
+				if (element) {
+					element.style[key] = value;
+				}
+			},
+
 			get_element_key_f64: (id_ptr, id_len, key_ptr, key_len) => {
 				let id = wasmMemoryInterface.loadString(id_ptr, id_len);
 				let key = wasmMemoryInterface.loadString(key_ptr, key_len);
@@ -1906,20 +1911,6 @@ function odinSetupDefaultImports(wasmMemoryInterface, consoleElement, memory, ev
 				return window.devicePixelRatio;
 			},
 
-			set_document_title: (title_ptr, title_len) => {
-				let title = wasmMemoryInterface.loadString(title_ptr, title_len);
-				document.title = title;
-			},
-
-			set_element_style: (id_ptr, id_len, property_ptr, property_len, value_ptr, value_len) => {
-				let id = wasmMemoryInterface.loadString(id_ptr, id_len);
-				let element = getElement(id);
-				if (element) {
-					let property = wasmMemoryInterface.loadString(property_ptr, property_len);
-					let value    = wasmMemoryInterface.loadString(value_ptr, value_len);
-					element.style.setProperty(property, value);
-				}
-			},
 		},
 
 		"webgl": webglContext.getWebGL1Interface(),
@@ -1940,10 +1931,7 @@ async function runWasm(wasmPath, consoleElement, extraForeignImports, wasmMemory
 	}
 	wasmMemoryInterface.setIntSize(intSize);
 
-	let eventQueue = new Array();
-	let event_temp = {};
-
-	let imports = odinSetupDefaultImports(wasmMemoryInterface, consoleElement, wasmMemoryInterface.memory, eventQueue, event_temp);
+	let imports = odinSetupDefaultImports(wasmMemoryInterface, consoleElement, wasmMemoryInterface.memory);
 	let exports = {};
 
 	if (extraForeignImports !== undefined) {
@@ -1982,13 +1970,6 @@ async function runWasm(wasmPath, consoleElement, extraForeignImports, wasmMemory
 
 			const dt = (currTimeStamp - prevTimeStamp)*0.001;
 			prevTimeStamp = currTimeStamp;
-
-			while (eventQueue.length > 0) {
-				let e = eventQueue.shift()
-				event_temp.data = e.event_data;
-				exports.odin_dom_do_event_callback(e.data, e.callback, odin_ctx);
-			}
-			event_temp.data = null;
 
 			if (!exports.step(dt, odin_ctx)) {
 				exports._end();

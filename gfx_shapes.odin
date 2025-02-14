@@ -23,6 +23,10 @@ draw_rectangle_rounded :: proc(rec: Rect, roundness: f32, segments: int, color: 
 	_draw_rectangle_rounded(rec, roundness, segments, color)
 }
 
+draw_circle :: proc(center: [2]f32, radius: f32, color: u32) {
+	draw_circle_sector(center, radius, 0, 360, 36, color)
+}
+
 draw_circle_sector :: proc(center: [2]f32, radius, start_angle, end_angle: f32, segments: int, color: u32) {
 	_draw_circle_sector(center, radius, start_angle, end_angle, segments, color)
 }

@@ -1,3 +1,4 @@
+#+feature dynamic-literals
 #+private
 package nais
 
@@ -527,7 +528,7 @@ __scroll_callback :: proc(e: js.Event) {
 	context = g_window.ctx
 
 	g_window.handler(Scroll{
-		delta = e.scroll.delta,
+		delta = -e.scroll.delta,
 	})
 }
 

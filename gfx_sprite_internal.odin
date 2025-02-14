@@ -50,8 +50,8 @@ Constants :: struct #packed {
 #assert(size_of(Constants) % 16 == 0)
 
 _gfx_init_sprite :: proc() {
-	g.rp.width               = 400
-	g.rp.height              = 400
+	g.rp.width               = 100
+	g.rp.height              = 100
 	g.sprites.allocator      = context.allocator
 	g.free_sprites.allocator = context.allocator
 
@@ -171,8 +171,8 @@ _gfx_init_sprite :: proc() {
 	///////////////////////////////////////////////////////////////////////////////////////////////
 
 	g.module = wgpu.DeviceCreateShaderModule(device, &{
-		nextInChain = &wgpu.ShaderModuleWGSLDescriptor{
-			sType = .ShaderModuleWGSLDescriptor,
+		nextInChain = &wgpu.ShaderSourceWGSL{
+			sType = .ShaderSourceWGSL,
 			code  = #load("gfx_sprite.wgsl"),
 		},
 	})
@@ -339,6 +339,14 @@ _draw_sprite_data :: proc(_sprite: Sprite, data: Sprite_Data, flush := true) {
 	assert(!!sprite.rect.was_packed)
 	assert(sprite.rect.w > 0)
 	assert(sprite.rect.h > 0)
+
+	if data.color & 0xFF000000 == 0 {
+		return
+	}
+
+	if data.scale.x == 0 || data.scale.y == 0 {
+		return
+	}
 
 	_gfx_swap_renderer(_sprite_renderer, flush)
 

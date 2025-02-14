@@ -1,5 +1,6 @@
 package main
 
+import           "base:runtime"
 import           "core:encoding/cbor"
 import           "core:log"
 import           "core:math"
@@ -100,8 +101,11 @@ font_data := [Font][]byte{
 
 fonts := [Font]nais.Font{}
 
+ctx: runtime.Context
+
 main :: proc() {
 	context.logger = log.create_console_logger(.Info)
+	ctx = context
 
 	nais.run("CBOR", {800, 450}, {.VSync, .Low_Power, .Windowed_Fullscreen}, proc(ev: nais.Event) {
 		#partial switch e in ev {
@@ -125,28 +129,35 @@ main :: proc() {
 
 			append(&g.file_path, "scratch.odin")
 
-			fb := nais.frame_buffer_size()
 
 			min_memory_size := clay.MinMemorySize()
 			arena := clay.CreateArenaWithCapacityAndMemory(min_memory_size, make([^]byte, min_memory_size))
-			clay.Initialize(arena, {fb.x, fb.y})
-			clay.SetMeasureTextFunction(nais_clay.measure_text)
+
+			sz := nais.window_size()
+			clay.Initialize(arena, {sz.x, sz.y}, { handler = handle_clay_error })
+
+			clay.SetMeasureTextFunction(nais_clay.measure_text, nil)
 			clay.SetDebugModeEnabled(true)
 
 		case nais.Resize:
-			fb := nais.frame_buffer_size()
-			clay.SetLayoutDimensions({fb.x, fb.y})
+			sz := nais.window_size()
+			clay.SetLayoutDimensions({sz.x, sz.y})
 
 		case nais.Input:
 			i_press_release(e.key, e.action)
-			clay.SetPointerState(linalg.array_cast(g.inp.cursor, f32) * nais.dpi(), key_down(.Mouse_Left))
+
+			// if e.key == .Mouse_Left {
+			// 	log.warn("click", e.action == .Pressed)
+			// 	clay.SetPointerState(linalg.array_cast(g.inp.cursor, f32), e.action == .Pressed)
+			// }
 
 		case nais.Text:
 			edit.input_rune(&g.editor, e.ch)
 
 		case nais.Move:
 			g.inp.cursor = linalg.array_cast(e.position, i32)
-			clay.SetPointerState(linalg.array_cast(g.inp.cursor, f32) * nais.dpi(), key_down(.Mouse_Left))
+			log.info(g.inp.cursor)
+			// clay.SetPointerState(linalg.array_cast(g.inp.cursor, f32), key_down(.Mouse_Left))
 
 		case nais.Scroll:
 			g.inp.scroll = e.delta
@@ -154,10 +165,11 @@ main :: proc() {
 		case nais.Frame:
 			defer ba.clear(&g.inp.new_keys)
 
-			fb  := nais.frame_buffer_size()
-			dpi := nais.dpi()
+			sz := nais.window_size()
 
 			g.editor.current_time._nsec += i64(e.dt*1e9)
+
+			clay.SetPointerState(linalg.array_cast(g.inp.cursor, f32), key_down(.Mouse_Left))
 
 			clay.UpdateScrollContainers(false, linalg.array_cast(g.inp.scroll, f32), e.dt)
 			g.inp.scroll = 0
@@ -169,12 +181,25 @@ main :: proc() {
 			RED :: [4]f32{0, 0, 255, 255}
 
 			clay.BeginLayout()
-			if clay.Rectangle(clay.ID("screen"), clay.Layout({ sizing = { width = clay.SizingFixed(fb.x), height = clay.SizingFixed(fb.y) } }), clay.RectangleConfig({})) {
-				if clay.Rectangle(clay.ID("main"), clay.Layout({ padding = {16, 16}, layoutDirection = .TOP_TO_BOTTOM, sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) } }), clay.RectangleConfig({})) {
-					if clay.Rectangle(clay.ID("top"), clay.Layout({ sizing = { width = clay.SizingGrow({}) } }), clay.RectangleConfig({})) {
-						clay.Text(clay.ID("title"), string(g.file_path[:]), clay.TextConfig(UI_TEXT))
-						if clay.Rectangle(clay.ID("right"), clay.Layout({ sizing = { width = clay.SizingGrow({}) }, childAlignment = { x = .RIGHT }, childGap = 16 }), clay.RectangleConfig({})) {
 
+			if clay.UI().configure({
+				id = clay.ID("screen"),
+				layout = { sizing = { width = clay.SizingFixed(sz.x), height = clay.SizingFixed(sz.y) } },
+			}) {
+				if clay.UI().configure({
+					id = clay.ID("main"),
+					layout = { padding = { 16, 16, 16, 16 }, layoutDirection = .TopToBottom, sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) } },
+				}) {
+					if clay.UI().configure({
+						id = clay.ID("top"),
+						layout = {  sizing = { width = clay.SizingGrow({}) } },
+					}) {
+						clay.Text(string(g.file_path[:]), clay.TextConfig(UI_TEXT))
+
+						if clay.UI().configure({
+							id = clay.ID("right"),
+							layout = { sizing = { width = clay.SizingGrow({}) }, childAlignment = { x = .Right }, childGap = 16 },
+						}) {
 							// when #defined(os_open) {
 							// 	if Button("Open") do os_open()
 							// }
@@ -209,7 +234,11 @@ main :: proc() {
 						} // right
 					} // top
 
-					if clay.Scroll(clay.ID("content"), clay.Layout({ sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) }, layoutDirection = .TOP_TO_BOTTOM }), clay.ScrollConfig({ vertical = true })) {
+					if clay.UI().configure({
+						id = clay.ID("content"),
+						layout = { sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) }, layoutDirection = .TopToBottom },
+						scroll = { vertical = true },
+					}) {
 						caret, selection_end := edit.sorted_selection(&g.editor)
 
 						line_i: u32
@@ -219,52 +248,62 @@ main :: proc() {
 							line_len := len(line)
 							line := strings.trim_right_space(line)
 
-							id := clay.ID("line", line_i)
-							clay.Text(id, line, clay.TextConfig({ fontSize=16, textColor={166, 218, 149, 255}, fontId = u16(Font.Default) }))
+							if clay.UI().configure({ id = clay.ID("line", line_i) }) {
+								clay.Text(line, clay.TextConfig({ fontSize=16, textColor={166, 218, 149, 255}, fontId = u16(Font.Default) }))
 
-							// Handle clicking.
-							if clay.PointerOver(id) && key_down(.Mouse_Left) {
+								// Handle clicking.
+								line_id := clay.GetElementId(clay.MakeString(line))
+								if clay.PointerOver(line_id) && key_down(.Mouse_Left) {
 
-								// NOTE: assuming the content starts at x 0.
+									// NOTE: assuming the content starts at x 0.
 
-								tab_width := nais.measure_text("    ", size=16).width
+									tab_width := nais.measure_text("    ", size=16).width
 
-								at_x: f32
-								at_i: int
-								line_iter := line
-								// TODO:
-								// tabs: for tabbed in strings.split_after_iterator(&line_iter, "\t") {
-								// 	tabbed := tabbed
-								// 	if len(tabbed) > 0 && tabbed[0] == '\t' {
-								// 		tabbed = tabbed[1:]
-								// 		at_x += tab_width
-								// 		if at_x >= f32(g.inp.cursor.x) * dpi.x {
-								// 			break
-								// 		}
-								// 		at_i += 1
-								// 	}
-								//
-								// 	for iter := fs.TextIterInit(&g.fs_renderer.fs, at_x, 0, tabbed); true; {
-								// 		quad: fs.Quad
-								// 		fs.TextIterNext(&g.fs_renderer.fs, &iter, &quad) or_break
-								// 		at_x = quad.x1
-								// 		if at_x >= f32(g.inp.cursor.x) * dpi.x {
-								// 			break tabs
-								// 		}
-								// 		at_i += 1
-								// 	}
-								// }
+									at_x: f32
+									at_i: int
+									line_iter := line
+									// TODO:
+									// tabs: for tabbed in strings.split_after_iterator(&line_iter, "\t") {
+									// 	tabbed := tabbed
+									// 	if len(tabbed) > 0 && tabbed[0] == '\t' {
+									// 		tabbed = tabbed[1:]
+									// 		at_x += tab_width
+									// 		if at_x >= f32(g.inp.cursor.x) * dpi.x {
+									// 			break
+									// 		}
+									// 		at_i += 1
+									// 	}
+									//
+									// 	for iter := fs.TextIterInit(&g.fs_renderer.fs, at_x, 0, tabbed); true; {
+									// 		quad: fs.Quad
+									// 		fs.TextIterNext(&g.fs_renderer.fs, &iter, &quad) or_break
+									// 		at_x = quad.x1
+									// 		if at_x >= f32(g.inp.cursor.x) * dpi.x {
+									// 			break tabs
+									// 		}
+									// 		at_i += 1
+									// 	}
+									// }
 
-								g.editor.selection = buf_i + at_i - 1
-							}
+									g.editor.selection = buf_i + at_i - 1
+								}
 
-							// Draw caret.
-							if buf_i <= caret && buf_i + line_len > caret {
-								column := caret - buf_i
-								width := nais.measure_text(line[:column], size=16).width
+								// Draw caret.
+								if buf_i <= caret && buf_i + line_len > caret {
+									column := caret - buf_i
+									width := nais.measure_text(line[:column], size=16).width
 
-								if clay.Floating(clay.ID("caret-container"), clay.Layout({ sizing = { width = clay.SizingFixed(16), height = clay.SizingFixed(lh) } }), clay.FloatingConfig({ parentId = id.id, offset = { width, 0 } })) {
-									if clay.Rectangle(clay.ID("caret"), clay.Layout({ sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) } }), clay.RectangleConfig({ color = { 166, 218, 149, 177 } })) {}
+									if clay.UI().configure({
+										id = clay.ID("caret-container"),
+										layout = { sizing = { width = clay.SizingFixed(8), height = clay.SizingFixed(lh) } },
+										floating = { offset = { width, 0 } },
+									}) {
+										if clay.UI().configure({
+											id = clay.ID("caret"),
+											layout = { sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) } },
+											backgroundColor = { 166, 218, 149, 177 },
+										}) {}
+									}
 								}
 							}
 
@@ -317,7 +356,10 @@ main :: proc() {
 					// 	}
 					// }
 
-					if clay.Rectangle(clay.ID("bottom"), clay.Layout({ sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) }, childAlignment = { x = .RIGHT, y = .BOTTOM } }), clay.RectangleConfig({})) {
+					if clay.UI().configure({
+						id = clay.ID("bottom"),
+						layout = { sizing = { width = clay.SizingGrow({}), height = clay.SizingFit({}) }, childAlignment = { x = .Right, y = .Bottom } },
+					}) {
 						// FPS over last 30 frames.
 						@static frame_times: [30]f32
 						@static frame_times_idx: int
@@ -332,7 +374,7 @@ main :: proc() {
 
 						buf: [24]byte
 						fps := strconv.itoa(buf[:], int(math.round(len(frame_times)/frame_time)))
-						clay.Text(clay.ID("fps"), fps, clay.TextConfig(UI_TEXT))
+						clay.Text(fps, clay.TextConfig(UI_TEXT))
 					} // bottom
 				} // main
 
@@ -340,14 +382,25 @@ main :: proc() {
 				SCROLLBAR_THUMB_HEIGHT :: 64
 				SCROLLBAR_COLOR        :: [4]f32{244, 138, 173, 100}
 				SCROLLBAR_THUMB_COLOR  :: [4]f32{244, 138, 173, 255}
-				if clay.Rectangle(clay.ID("scrollbar"), clay.Layout({ sizing = { width = clay.SizingFixed(SCROLLBAR_WIDTH), height = clay.SizingGrow({}) }, layoutDirection = .TOP_TO_BOTTOM }), clay.RectangleConfig({ color = SCROLLBAR_COLOR })) {
-					scroll := clay.GetScrollContainerData(clay.ID("content"))
+				if clay.UI().configure({
+					id = clay.ID("scrollbar"),
+					layout = { sizing = { width = clay.SizingFixed(SCROLLBAR_WIDTH), height = clay.SizingGrow({}) }, layoutDirection = .TopToBottom},
+					backgroundColor = SCROLLBAR_COLOR,
+				}) {
+					scroll := clay.GetScrollContainerData(clay.GetElementId(clay.MakeString("content")))
 					max    := scroll.contentDimensions.height - scroll.scrollContainerDimensions.height
 					curr   := abs(scroll.scrollPosition.y)
 					perc   := curr / max
-					thumb  := perc * fb.y - SCROLLBAR_THUMB_HEIGHT
-					if clay.Rectangle(clay.ID("thumb-offset"), clay.Layout({ sizing = { height = clay.SizingFixed(thumb) } }), clay.RectangleConfig({})) {}
-					if clay.Rectangle(clay.ID("thumb"), clay.Layout({ sizing = { height = clay.SizingFixed(SCROLLBAR_THUMB_HEIGHT), width = clay.SizingGrow({}) } }), clay.RectangleConfig({ color = SCROLLBAR_THUMB_COLOR })) {}
+					thumb  := perc * sz.y - SCROLLBAR_THUMB_HEIGHT
+					if clay.UI().configure({
+						id = clay.ID("thumb-offset"),
+						layout = { sizing = { height = clay.SizingFixed(thumb) } },
+					}) {}
+					if clay.UI().configure({
+						id = clay.ID("thumb"),
+						layout = { sizing = { height = clay.SizingFixed(SCROLLBAR_THUMB_HEIGHT), width = clay.SizingGrow({}) } },
+						backgroundColor = SCROLLBAR_THUMB_COLOR,
+					}) {}
 				} // scrollbar
 			} // screen
 
@@ -379,8 +432,8 @@ Button :: proc($ID: string) -> (clicked: bool) {
 	case:         color = {244, 138, 173, 255}
 	}
 
-	if clay.Rectangle(clay.ID(ID), clay.Layout({ padding = {12, 6} }), clay.RectangleConfig({ color = color })) {
-		clay.Text(clay.ID(ID + "-text"), clay.MakeString(ID), clay.TextConfig(UI_TEXT))
+	if clay.UI(clay.ID(ID), clay.Layout({ padding = {12, 6} }), clay.Rectangle({ color = color })) {
+		clay.Text(clay.MakeString(ID), clay.TextConfig(UI_TEXT))
 	}
 	return
 }
@@ -411,3 +464,8 @@ Button :: proc($ID: string) -> (clicked: bool) {
 // - error handling in the parser and display those errors
 // - always doing preventDefault is probably bad
 // - Cmd+foo keybinds on MacOS
+
+handle_clay_error :: proc "c" (err: clay.ErrorData) {
+	context = ctx
+	log.errorf("[clay][%v]: %v", err.errorType, string(err.errorText.chars[:err.errorText.length]))
+}
