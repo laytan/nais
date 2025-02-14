@@ -47,6 +47,8 @@ jobs:
           cp -R examples/bunny/web website/examples/bunny
           cp -R examples/box2d/web website/examples/box2d
           cp -R examples/cbor/web  website/examples/cbor
+          cp -R examples/hello/web website/examples/hello
+          cp -R examples/jam/web website/examples/jam
 
           echo "Hellope!"        > website/index.html
           echo "nais.laytan.dev" > website/CNAME
