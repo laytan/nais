@@ -35,13 +35,13 @@ _gfx_adapter_callback :: proc "c" (status: wgpu.RequestAdapterStatus, adapter: w
 	}, { callback = _gfx_device_callback })
 }
 
-_gfx_device_lost_callback :: proc "c" (device: wgpu.Device, reason: wgpu.DeviceLostReason, message: string, _, _: rawptr) {
+_gfx_device_lost_callback :: proc "c" (device: ^wgpu.Device, reason: wgpu.DeviceLostReason, message: string, _, _: rawptr) {
 	// NOTE: should we request a new device?
 	context = g_window.ctx
 	log.panicf("[nais][wgpu]: device lost because of %v: %v", reason, message)
 }
 
-_gfx_uncaptured_error_callback :: proc "c" (device: wgpu.Device, type: wgpu.ErrorType, message: string, _, _: rawptr) {
+_gfx_uncaptured_error_callback :: proc "c" (device: ^wgpu.Device, type: wgpu.ErrorType, message: string, _, _: rawptr) {
 	context = g_window.ctx
 	log.panicf("[nais][wgpu]: uncaptured error %v: %v", type, message)
 }
@@ -69,9 +69,9 @@ _gfx_get_surface :: proc(instance: wgpu.Instance) -> wgpu.Surface {
 }
 
 _gfx_init_default_renderers :: proc() {
-	_gfx_init_shapes()
 	_gfx_init_text()
 	_gfx_init_sprite()
+	_gfx_init_sdf()
 }
 
 // TODO: temporary.

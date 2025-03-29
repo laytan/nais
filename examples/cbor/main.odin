@@ -156,7 +156,6 @@ main :: proc() {
 
 		case nais.Move:
 			g.inp.cursor = linalg.array_cast(e.position, i32)
-			log.info(g.inp.cursor)
 			// clay.SetPointerState(linalg.array_cast(g.inp.cursor, f32), key_down(.Mouse_Left))
 
 		case nais.Scroll:

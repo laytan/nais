@@ -137,8 +137,8 @@ scissor :: proc(x, y, w, h: u32, loc := #caller_location) {
 	}
 
 	if new_scissor.x + new_scissor.z > g_window.gfx.config.width {
-		log.warnf("scissor out of bounds: X of %v + width of %v is greater than frame buffer width of %v, solution: width = frame buffer width - X", new_scissor.x, new_scissor.z, g_window.gfx.config.width, location=loc)
-		new_scissor.z = g_window.gfx.config.width - new_scissor.x
+		log.errorf("scissor out of bounds: X of %v + width of %v is greater than frame buffer width of %v, solution: no scissor", new_scissor.x, new_scissor.z, g_window.gfx.config.width, location=loc)
+		return
 	}
 
 	if new_scissor.y > g_window.gfx.config.height {
@@ -147,8 +147,8 @@ scissor :: proc(x, y, w, h: u32, loc := #caller_location) {
 	}
 
 	if new_scissor.y + new_scissor.w > g_window.gfx.config.height {
-		log.warnf("scissor out of bounds: Y of %v + height of %v is greater than frame buffer height of %v, solution: height = frame buffer height - Y", new_scissor.y, new_scissor.w, g_window.gfx.config.height, location=loc)
-		new_scissor.y = g_window.gfx.config.height - new_scissor.y
+		log.errorf("scissor out of bounds: Y of %v + height of %v is greater than frame buffer height of %v, solution: no scissor", new_scissor.y, new_scissor.w, g_window.gfx.config.height, location=loc)
+		return
 	}
 
 	if f.scissor != new_scissor {
