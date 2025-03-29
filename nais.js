@@ -10,25 +10,25 @@
 		}
 
 		getInterface() {
-			const inputEl = document.getElementById("nais-input");
-			if (inputEl) {
-				inputEl.addEventListener("input", (e) => {
-					if (e.inputType != "insertText") {
-						return;
-					}
-
-					const textLength = new TextEncoder().encode(e.data).length;
-					if (textLength <= 0) {
-						return;
-					}
-
-					const textAddr = this.mem.exports.nais_input_buffer_resize(textLength);
-					this.mem.storeString(textAddr, e.data);
-					this.mem.exports.nais_input_buffer_ingest();
-				});
-			} else {
-				console.warn("no nais-input element, Text input is not captured");
-			}
+			// const inputEl = document.getElementById("nais-input");
+			// if (inputEl) {
+			// 	inputEl.addEventListener("input", (e) => {
+			// 		if (e.inputType != "insertText") {
+			// 			return;
+			// 		}
+			//
+			// 		const textLength = new TextEncoder().encode(e.data).length;
+			// 		if (textLength <= 0) {
+			// 			return;
+			// 		}
+			//
+			// 		const textAddr = this.mem.exports.nais_input_buffer_resize(textLength);
+			// 		this.mem.storeString(textAddr, e.data);
+			// 		this.mem.exports.nais_input_buffer_ingest();
+			// 	});
+			// } else {
+			// 	console.warn("no nais-input element, Text input is not captured");
+			// }
 
 			window.onbeforeunload = () => {
 				this.mem.exports._end();

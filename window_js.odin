@@ -20,8 +20,6 @@ Impl :: struct {
 }
 
 _run :: proc(title: string, size: [2]int, flags: Flags, handler: Event_Handler) {
-	// glfw.SetScrollCallback(     g_window.impl.handle, __scroll_callback      )
-	// // // glfw.SetDropCallback(state.os.window, drop_callback)
 	size := size
 
 	if .Windowed_Fullscreen in flags {
@@ -47,16 +45,16 @@ _run :: proc(title: string, size: [2]int, flags: Flags, handler: Event_Handler) 
 	assert(ok)
 	ok  = js.add_event_listener("wgpu-canvas", .Touch_Move, nil, __mouse_move_callback)
 	assert(ok)
+	ok = js.add_event_listener("wgpu-canvas", .Wheel, nil, __scroll_callback)
+	assert(ok)
 
 	ok  = js.add_window_event_listener(.Resize, nil, __size_callback)
 	assert(ok)
-
 	ok = js.add_window_event_listener(.Key_Down, nil, __key_down_callback)
 	assert(ok)
-	ok = js.add_window_event_listener(.Key_Up, nil, __key_up_callback)
+	ok = js.add_window_event_listener(.Key_Press, nil, __key_press_callback)
 	assert(ok)
-
-	ok = js.add_window_event_listener(.Wheel, nil, __scroll_callback)
+	ok = js.add_window_event_listener(.Key_Up, nil, __key_up_callback)
 	assert(ok)
 
 	_gfx_init()
@@ -86,22 +84,22 @@ step :: proc(dt: f32) -> (keep_going: bool) {
 	return !g_window.impl.quit
 }
 
-@(private="file", export)
-nais_input_buffer_resize :: proc "contextless" (size: i32) -> ([^]byte) {
-	context = g_window.ctx
-	err := resize(&g_window.impl.input_buf, size)
-	assert(err == nil)
-	return raw_data(g_window.impl.input_buf)
-}
-
-@(private="file", export)
-nais_input_buffer_ingest :: proc "contextless" () {
-	context = g_window.ctx
-	text := string(g_window.impl.input_buf[:])
-	for ch in text {
-		g_window.handler(Text{ch=ch})
-	}
-}
+// @(private="file", export)
+// nais_input_buffer_resize :: proc "contextless" (size: i32) -> ([^]byte) {
+// 	context = g_window.ctx
+// 	err := resize(&g_window.impl.input_buf, size)
+// 	assert(err == nil)
+// 	return raw_data(g_window.impl.input_buf)
+// }
+//
+// @(private="file", export)
+// nais_input_buffer_ingest :: proc "contextless" () {
+// 	context = g_window.ctx
+// 	text := string(g_window.impl.input_buf[:])
+// 	for ch in text {
+// 		g_window.handler(Text{ch=ch})
+// 	}
+// }
 
 @(fini)
 __fini :: proc() {
@@ -472,6 +470,17 @@ __key_up_callback :: proc(e: js.Event) {
 	}
 
 	g_window.handler(Input{key=key, action=.Released})
+}
+
+@(private="file")
+__key_press_callback :: proc(e: js.Event) {
+	context = g_window.ctx
+
+	i := e.data.key
+	if i.ctrl || i.meta { return }
+	if i.char >= 0x00 && i.char <= 0x1F { return }
+
+	g_window.handler(Text{ch=rune(i.char)})
 }
 
 @(private="file")
