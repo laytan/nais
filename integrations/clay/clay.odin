@@ -3,6 +3,7 @@ package nais_integrations_clay
 import "core:log"
 import "core:math/linalg"
 import "core:math"
+import "core:slice"
 
 // TODO: this path is not going to be correct.
 import clay "../../../pkg/clay"
@@ -34,6 +35,49 @@ color :: proc(color: [4]f32) -> u32 {
 }
 
 render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
+	batches := make([dynamic]i32, context.temp_allocator)
+
+	for i in 0..<i32(render_commands.length) {
+		render_command := clay.RenderCommandArray_Get(render_commands, i)
+		if render_command.commandType == .ScissorStart {
+			append(&batches, i)
+		}
+		if render_command.commandType == .ScissorEnd {
+			append(&batches, i)
+		}
+	}
+	if len(batches) > 0 {
+		if batches[len(batches)-1] != render_commands.length-1 {
+			append(&batches, render_commands.length-1)
+		}
+	}
+
+	start: i32
+	for batch, i in batches {
+		end := batch
+		defer start = batch + 1
+
+		batch_slice := render_commands.internalArray[start:end]
+
+		slice.sort_by(batch_slice, proc(a, b: clay.RenderCommand) -> bool {
+			assert(a.commandType != .ScissorStart)
+			assert(a.commandType != .ScissorEnd)
+
+			assert(b.commandType != .ScissorStart)
+			assert(b.commandType != .ScissorEnd)
+
+			if a.zIndex != b.zIndex {
+				return a.zIndex < b.zIndex
+			}
+
+			if a.treeDepth != b.treeDepth {
+				return a.treeDepth < b.treeDepth
+			}
+
+			return a.commandType < b.commandType
+		})
+	}
+
 	for i in 0..<i32(render_commands.length) {
 		render_command := clay.RenderCommandArray_Get(render_commands, i)
 		bounding_box   := render_command.boundingBox
@@ -78,6 +122,14 @@ render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
 				config.color / 255,
 				{config.cornerRadius.topLeft, config.cornerRadius.topRight, config.cornerRadius.bottomRight, config.cornerRadius.bottomLeft},
 				linalg.to_f32([4]u16{config.width.left, config.width.right, config.width.bottom, config.width.top}),
+			)
+
+		case .Image:
+			config := render_command.renderData.image
+			nais.draw_sprite(
+				nais.Sprite(uintptr(config.imageData)),
+				position={bounding_box.x, bounding_box.y},
+				scale=nais.scale_sprite(nais.Sprite(uintptr(config.imageData)), {bounding_box.width, bounding_box.height}),
 			)
 
 		case .None:

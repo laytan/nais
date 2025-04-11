@@ -77,6 +77,7 @@ _gfx_init_default_renderers :: proc() {
 // TODO: temporary.
 
 _gfx_frame :: proc() {
+	log.info("frame")
 	curr_texture := wgpu.SurfaceGetCurrentTexture(g_window.gfx.surface)
 	curr_view    := wgpu.TextureCreateView(curr_texture.texture)
 

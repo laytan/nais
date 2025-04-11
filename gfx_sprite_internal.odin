@@ -50,8 +50,8 @@ Constants :: struct #packed {
 #assert(size_of(Constants) % 16 == 0)
 
 _gfx_init_sprite :: proc() {
-	g.rp.width               = 100
-	g.rp.height              = 100
+	g.rp.width               = 1024 * 2
+	g.rp.height              = 1024 * 2
 	g.sprites.allocator      = context.allocator
 	g.free_sprites.allocator = context.allocator
 
@@ -271,7 +271,7 @@ _load_sprite_from_pixels :: proc(pixels: [][4]u8, width: int) -> Sprite {
 	sprite.pxs = pixels
 	sprite.rect.w = stbrp.Coord(width) + 1
 	sprite.rect.h = stbrp.Coord(len(pixels) / width) + 1
-	log.debugf("%#v", sprite)
+	// log.debugf("%#v", sprite)
 	append(&g.sprites, sprite)
 	_gfx_sprite_update_atlas()
 	return (Sprite)(len(g.sprites)-1)
@@ -288,7 +288,7 @@ _gfx_sprite_update_atlas :: proc() {
 		return
 	}
 
-	log.debugf("%#v\n%#v", g.sprites[0], g.sprites[1] if len(g.sprites) > 1 else _Sprite{})
+	// log.debugf("%#v\n%#v", g.sprites[0], g.sprites[1] if len(g.sprites) > 1 else _Sprite{})
 
 	aw := int(g.rp.width)
 	// ah := int(g.rp.height)
@@ -300,16 +300,16 @@ _gfx_sprite_update_atlas :: proc() {
 		x := int(sprite.rect.x)
 		y := int(sprite.rect.y)
 		yi := y * aw
-		log.debug(w, h, y, yi)
+		// log.debug(w, h, y, yi)
 
 		for i in 0..<h {
 			defer yi += aw
-			log.debugf("%v %v <- %v %v, %v", sprite_i, yi+x, i*w, w, sprite.pxs[i*w:][:w])
+			// log.debugf("%v %v <- %v %v, %v", sprite_i, yi+x, i*w, w, sprite.pxs[i*w:][:w])
 			copy(texture_data[yi+x:], sprite.pxs[i*w:][:w])
 		}
 	}
 
-	log.debugf("%#v", texture_data[:20])
+	// log.debugf("%#v", texture_data[:20])
 
 	if i32(wgpu.TextureGetWidth(g.atlas)) != g.rp.width || i32(wgpu.TextureGetHeight(g.atlas)) != g.rp.height {
 		unimplemented("growing the atlas")
@@ -332,6 +332,12 @@ _gfx_sprite_update_atlas :: proc() {
 			depthOrArrayLayers = 1,
 		},
 	)
+}
+
+_scale_sprite :: proc(_sprite: Sprite, size: [2]f32) -> (scale: [2]f32) {
+	sprite := g.sprites[int(_sprite)]
+	orig_size := [2]f32{f32(sprite.rect.w) - 1, f32(sprite.rect.h) - 1}
+	return size / orig_size
 }
 
 _draw_sprite_data :: proc(_sprite: Sprite, data: Sprite_Data, flush := true) {

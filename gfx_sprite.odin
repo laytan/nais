@@ -64,6 +64,11 @@ unload_sprite :: proc(sprite: Sprite) {
 	unimplemented()
 }
 
+@(require_results)
+scale_sprite :: proc(sprite: Sprite, size: [2]f32) -> (scale: [2]f32) {
+	return _scale_sprite(sprite, size)
+}
+
 // TODO: API to load an entire sprite sheet in, maybe?
 
 draw_sprite :: proc(sprite: Sprite, position: [2]f32, anchor: [2]f32 = 0, scale: [2]f32 = 1, rotation: f32 = 0, color: u32 = 0xFFFFFFFF, flush := true) {
