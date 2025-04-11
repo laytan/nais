@@ -132,7 +132,7 @@ main :: proc() {
 	    windowHeight = sz.y
 
 	    clay.SetPointerState(cursor, left_mouse)
-	    clay.UpdateScrollContainers(false, f32(scroll.y), e.dt)
+	    clay.UpdateScrollContainers(false, {f32(scroll.x), f32(scroll.y)}, e.dt)
 	    scroll = 0
 	    renderCommands := createLayout(animationLerpValue < 0 ? (animationLerpValue + 1) : (1 - animationLerpValue))
 	    nais_clay.render(&renderCommands)
@@ -291,7 +291,7 @@ DeclarativeSyntaxPage :: proc(titleTextConfig: clay.TextElementConfig, widthSizi
         if clay.UI()({
             id = clay.ID("SyntaxPageRightImageInner"),
             layout = { sizing = { width = clay.SizingGrow({ max = 568 }) } },
-            image = { imageData = rawptr(uintptr(syntaxImage)) },
+            image = { imageData = rawptr(uintptr(syntaxImage)), sourceDimensions = { 1136, 1194 } },
         }) {}
     }
 }
