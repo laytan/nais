@@ -36,6 +36,7 @@ build :: proc() -> bool {
 
 	system(
 		"odin", "build", ".",
+		"-o:speed",
 		"-target:js_wasm32",
 		"-target-features:bulk-memory,simd128",
 		"-out:web/module.wasm",
