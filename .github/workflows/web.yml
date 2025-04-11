@@ -49,6 +49,7 @@ jobs:
           cp -R examples/cbor/web  website/examples/cbor
           cp -R examples/hello/web website/examples/hello
           cp -R examples/jam/web website/examples/jam
+          cp -R examples/jam/clay-official-website website/examples/clay-official-website
 
           echo "Hellope!"        > website/index.html
           echo "nais.laytan.dev" > website/CNAME
