@@ -151,7 +151,7 @@ main :: proc() {
 
 			state.bunny = nais.load_sprite_from_memory(#load("../_resources/wabbit_alpha.png"), .PNG)
 
-			nais.load_font_from_memory("default", #load("/System/Library/Fonts/Supplemental/Arial.ttf"))
+			nais.load_font_from_memory("default", #load("../_resources/NotoSans-500-100.ttf"))
 
 			nais.background_set({1, 1, 1, 1})
 
