@@ -10,8 +10,9 @@ import           "core:strings"
 import           "core:text/edit"
 import ba        "core:container/bit_array"
 
+import clay      "pkg:clay"
+
 import nais      "../.."
-import clay      "../../../pkg/clay"
 import nais_clay "../../integrations/clay"
 
 CBOR :: `{
@@ -131,7 +132,7 @@ main :: proc() {
 
 
 			min_memory_size := clay.MinMemorySize()
-			arena := clay.CreateArenaWithCapacityAndMemory(min_memory_size, make([^]byte, min_memory_size))
+			arena := clay.CreateArenaWithCapacityAndMemory(uint(min_memory_size), make([^]byte, min_memory_size))
 
 			sz := nais.window_size()
 			clay.Initialize(arena, {sz.x, sz.y}, { handler = handle_clay_error })
@@ -181,21 +182,21 @@ main :: proc() {
 
 			clay.BeginLayout()
 
-			if clay.UI().configure({
+			if clay.UI()({
 				id = clay.ID("screen"),
 				layout = { sizing = { width = clay.SizingFixed(sz.x), height = clay.SizingFixed(sz.y) } },
 			}) {
-				if clay.UI().configure({
+				if clay.UI()({
 					id = clay.ID("main"),
 					layout = { padding = { 16, 16, 16, 16 }, layoutDirection = .TopToBottom, sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) } },
 				}) {
-					if clay.UI().configure({
+					if clay.UI()({
 						id = clay.ID("top"),
 						layout = {  sizing = { width = clay.SizingGrow({}) } },
 					}) {
-						clay.Text(string(g.file_path[:]), clay.TextConfig(UI_TEXT))
+						clay.TextDynamic(string(g.file_path[:]), clay.TextConfig(UI_TEXT))
 
-						if clay.UI().configure({
+						if clay.UI()({
 							id = clay.ID("right"),
 							layout = { sizing = { width = clay.SizingGrow({}) }, childAlignment = { x = .Right }, childGap = 16 },
 						}) {
@@ -233,7 +234,7 @@ main :: proc() {
 						} // right
 					} // top
 
-					if clay.UI().configure({
+					if clay.UI()({
 						id = clay.ID("content"),
 						layout = { sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) }, layoutDirection = .TopToBottom },
 						scroll = { vertical = true },
@@ -247,8 +248,8 @@ main :: proc() {
 							line_len := len(line)
 							line := strings.trim_right_space(line)
 
-							if clay.UI().configure({ id = clay.ID("line", line_i) }) {
-								clay.Text(line, clay.TextConfig({ fontSize=16, textColor={166, 218, 149, 255}, fontId = u16(Font.Default) }))
+							if clay.UI()({ id = clay.ID("line", line_i) }) {
+								clay.TextDynamic(line, clay.TextConfig({ fontSize=16, textColor={166, 218, 149, 255}, fontId = u16(Font.Default) }))
 
 								// Handle clicking.
 								line_id := clay.GetElementId(clay.MakeString(line))
@@ -292,12 +293,12 @@ main :: proc() {
 									column := caret - buf_i
 									width := nais.measure_text(line[:column], size=16).width
 
-									if clay.UI().configure({
+									if clay.UI()({
 										id = clay.ID("caret-container"),
 										layout = { sizing = { width = clay.SizingFixed(8), height = clay.SizingFixed(lh) } },
 										floating = { offset = { width, 0 } },
 									}) {
-										if clay.UI().configure({
+										if clay.UI()({
 											id = clay.ID("caret"),
 											layout = { sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) } },
 											backgroundColor = { 166, 218, 149, 177 },
@@ -355,7 +356,7 @@ main :: proc() {
 					// 	}
 					// }
 
-					if clay.UI().configure({
+					if clay.UI()({
 						id = clay.ID("bottom"),
 						layout = { sizing = { width = clay.SizingGrow({}), height = clay.SizingFit({}) }, childAlignment = { x = .Right, y = .Bottom } },
 					}) {
@@ -373,7 +374,7 @@ main :: proc() {
 
 						buf: [24]byte
 						fps := strconv.itoa(buf[:], int(math.round(len(frame_times)/frame_time)))
-						clay.Text(fps, clay.TextConfig(UI_TEXT))
+						clay.TextDynamic(fps, clay.TextConfig(UI_TEXT))
 					} // bottom
 				} // main
 
@@ -381,7 +382,7 @@ main :: proc() {
 				SCROLLBAR_THUMB_HEIGHT :: 64
 				SCROLLBAR_COLOR        :: [4]f32{244, 138, 173, 100}
 				SCROLLBAR_THUMB_COLOR  :: [4]f32{244, 138, 173, 255}
-				if clay.UI().configure({
+				if clay.UI()({
 					id = clay.ID("scrollbar"),
 					layout = { sizing = { width = clay.SizingFixed(SCROLLBAR_WIDTH), height = clay.SizingGrow({}) }, layoutDirection = .TopToBottom},
 					backgroundColor = SCROLLBAR_COLOR,
@@ -391,11 +392,11 @@ main :: proc() {
 					curr   := abs(scroll.scrollPosition.y)
 					perc   := curr / max
 					thumb  := perc * sz.y - SCROLLBAR_THUMB_HEIGHT
-					if clay.UI().configure({
+					if clay.UI()({
 						id = clay.ID("thumb-offset"),
 						layout = { sizing = { height = clay.SizingFixed(thumb) } },
 					}) {}
-					if clay.UI().configure({
+					if clay.UI()({
 						id = clay.ID("thumb"),
 						layout = { sizing = { height = clay.SizingFixed(SCROLLBAR_THUMB_HEIGHT), width = clay.SizingGrow({}) } },
 						backgroundColor = SCROLLBAR_THUMB_COLOR,

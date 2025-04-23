@@ -3,23 +3,23 @@ The bunnymark example with actual physics!
 */
 package main
 
-import      "base:runtime"
+import           "base:runtime"
 
-import      "core:fmt"
-import      "core:log"
-import      "core:math"
-import      "core:math/linalg"
-import      "core:math/rand"
-import      "core:strconv"
-import sa   "core:container/small_array"
-import      "core:encoding/cbor"
+import           "core:fmt"
+import           "core:log"
+import           "core:math"
+import           "core:math/linalg"
+import           "core:math/rand"
+import           "core:strconv"
+import sa        "core:container/small_array"
+import           "core:encoding/cbor"
 
-import clay      "../../../pkg/clay"
+import b2        "vendor:box2d"
+
+import clay      "pkg:clay"
+
+import nais      "../.."
 import nais_clay "../../integrations/clay"
-
-import b2   "vendor:box2d"
-
-import nais "../.."
 
 MAX_BUNNIES  :: 50_000
 BUNNY_WIDTH  :: 16
@@ -70,7 +70,7 @@ main :: proc() {
 	b2.SetLengthUnitsPerMeter(BUNNY_WIDTH)
 
 	world_def := b2.DefaultWorldDef()
-	world_def.gravity = 0
+	world_def.gravity.y = 200
 
 	state.world_id = b2.CreateWorld(world_def)
 
@@ -81,7 +81,7 @@ main :: proc() {
 		body_id   := b2.CreateBody(state.world_id, body_def)
 		shape_def := b2.DefaultShapeDef()
 
-		shape_def.restitution = 1
+		shape_def.material.restitution = 1
 		b.shape = b2.CreatePolygonShape(body_id, shape_def, b2.MakeBox(1, 1))
 	}
 
@@ -134,7 +134,7 @@ main :: proc() {
 						body := b2.CreateBody(state.world_id, body_def)
 
 						shape_def := b2.DefaultShapeDef()
-						shape_def.restitution = 1
+						shape_def.material.restitution = 1
 						_ = b2.CreatePolygonShape(body, shape_def, bunny_polygon)
 
 						sa.append(&state.bunnies, Bunny{
@@ -156,13 +156,13 @@ main :: proc() {
 			nais.background_set({1, 1, 1, 1})
 
 			{
-				arena := clay.CreateArenaWithCapacityAndMemory(clay.MinMemorySize(), make([^]byte, clay.MinMemorySize()))
+				arena := clay.CreateArenaWithCapacityAndMemory(uint(clay.MinMemorySize()), make([^]byte, clay.MinMemorySize()))
 
 				sz := nais.window_size()
 				clay.Initialize(arena, {sz.x, sz.y}, { handler = handle_clay_error })
 
 				clay.SetMeasureTextFunction(nais_clay.measure_text, nil)
-				clay.SetDebugModeEnabled(true)
+				// clay.SetDebugModeEnabled(true)
 			}
 
 		case nais.Quit:
@@ -232,7 +232,7 @@ main :: proc() {
 				body := b2.CreateBody(state.world_id, body_def)
 
 				shape_def := b2.DefaultShapeDef()
-				shape_def.restitution = 1
+				shape_def.material.restitution = 1
 				_ = b2.CreatePolygonShape(body, shape_def, bunny_polygon)
 
 				sa.append(&state.bunnies, Bunny{
@@ -300,15 +300,15 @@ main :: proc() {
 					nais_clay.render(&render_commands)
 				}
 
-				if clay.UI().configure({
+				if clay.UI()({
 					layout = { sizing = { width = clay.SizingGrow({}) }, padding = clay.PaddingAll(10), childGap = 20, childAlignment = { y = .Center } },
 					border = { width = { bottom = 2 }, color = {50, 50, 50, 255} },
 					backgroundColor = {0, 0, 0, 125},
 				}) {
 					bunnies_text := fmt.tprintf("bunnies: %v", state.bunnies.len)
-					clay.Text(bunnies_text, clay.TextConfig({ fontSize = 32, textColor = {255, 255, 255, 255} }))
+					clay.TextDynamic(bunnies_text, clay.TextConfig({ fontSize = 32, textColor = {255, 255, 255, 255} }))
 
-					clay.Text(string(buf[:fps_len+5]), clay.TextConfig({ fontSize = 32, textColor = {255, 255, 255, 255} }))
+					clay.TextDynamic(string(buf[:fps_len+5]), clay.TextConfig({ fontSize = 32, textColor = {255, 255, 255, 255} }))
 
 					if Button("reset") {
 						for ebunny in state.bunnies.data[:state.bunnies.len] {
@@ -327,9 +327,9 @@ main :: proc() {
 	})
 }
 
-Button :: proc(text: string) -> bool {
+Button :: proc($text: string) -> bool {
 	hovered: bool
-	if clay.UI().configure({
+	if clay.UI()({
 		layout = { padding = {10, 10, 5, 5} },
 		cornerRadius = clay.CornerRadiusAll(5),
 		backgroundColor = clay.Hovered() ? {75, 75, 75, 255} : {50, 50, 50, 255},

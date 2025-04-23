@@ -37,16 +37,14 @@ build :: proc() -> bool {
 	system(
 		"odin", "build", ".",
 		"-collection:pkg=../../../pkg",
-		"-o:speed",
 		"-target:js_wasm32",
 		"-target-features:bulk-memory,simd128",
-		"-out:web/module.wasm",
 		extra_linker_flags,
 	) or_return
 
 	cp("web/wgpu.js", odin_path("vendor", "wgpu", "wgpu.js")            or_return) or_return
 	cp("web/odin.js", odin_path("core", "sys", "wasm", "js", "odin.js") or_return) or_return
-	cp("web/nais.js", "../../nais.js")                                             or_return
+	cp("web/odin.js", "../../nais.js")                                             or_return
 
 	if len(os.args) > 1 && os.args[1] == "serve" {
 		serve() or_return

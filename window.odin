@@ -8,7 +8,7 @@ import "vendor:wgpu"
 
 // TODO: draw_fps
 
-@(private)
+// @(private)
 g_window := struct {
 	running:   bool,
 	ctx:       runtime.Context,

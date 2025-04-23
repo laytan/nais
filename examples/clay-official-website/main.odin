@@ -5,8 +5,9 @@ import           "base:runtime"
 import           "core:log"
 import           "core:fmt"
 
+import clay      "pkg:clay"
+
 import nais      "../.."
-import clay      "../../../pkg/clay"
 import nais_clay "../../integrations/clay"
 
 windowWidth:  f32 = 1024

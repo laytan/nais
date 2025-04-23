@@ -298,15 +298,6 @@ KEY_MAP := map[string]Key {
 	"ContextMenu"     = .Menu,
 }
 
-_KEY_MOUSE_LEFT   :: 0
-_KEY_MOUSE_RIGHT  :: 1
-_KEY_MOUSE_MIDDLE :: 2
-_KEY_MOUSE_4      :: 3
-_KEY_MOUSE_5      :: 4
-_KEY_MOUSE_6      :: 5
-_KEY_MOUSE_7      :: 6
-_KEY_MOUSE_8      :: 7
-
 /* Named printable keys */
 _KEY_SPACE         :: 0
 _KEY_APOSTROPHE    :: 1
@@ -445,6 +436,14 @@ _KEY_RIGHT_ALT     :: 117
 _KEY_RIGHT_SUPER   :: 118
 _KEY_MENU          :: 119
 
+_KEY_MOUSE_LEFT   :: 120
+_KEY_MOUSE_RIGHT  :: 121
+_KEY_MOUSE_MIDDLE :: 122
+_KEY_MOUSE_4      :: 123
+_KEY_MOUSE_5      :: 124
+_KEY_MOUSE_6      :: 125
+_KEY_MOUSE_7      :: 126
+_KEY_MOUSE_8      :: 127
 
 @(private="file")
 __key_down_callback :: proc(e: js.Event) {
@@ -499,7 +498,7 @@ __mouse_down_callback :: proc(e: js.Event) {
 	})
 
 	g_window.handler(Input{
-		key    = Key(e.mouse.button),
+		key    = Key(_KEY_MOUSE_LEFT + e.mouse.button),
 		action = .Pressed,
 	})
 }
@@ -516,7 +515,7 @@ __mouse_up_callback :: proc(e: js.Event) {
 	}
 
 	g_window.handler(Input{
-		key    = Key(e.mouse.button),
+		key    = Key(_KEY_MOUSE_LEFT + e.mouse.button),
 		action = .Released,
 	})
 }

@@ -1,7 +1,7 @@
 package build
 
 import    "core:fmt"
-import    "core:http"
+// import    "core:http"
 import    "core:log"
 import    "core:strings"
 import os "core:os/os2"
@@ -28,51 +28,72 @@ MAX_MEMORY_PAGES     :: 65536
 PAGE_SIZE :: 65536
 
 build :: proc() -> bool {
-	extra_linker_flags := fmt.tprintf(
-		`-extra-linker-flags:"--export-table --import-memory --initial-memory=%v --max-memory=%v"`,
-		INITIAL_MEMORY_PAGES * PAGE_SIZE,
-		MAX_MEMORY_PAGES     * PAGE_SIZE,
-	)
 
-	system(
-		"odin", "build", ".",
-		"-collection:pkg=../../../pkg",
-		"-o:speed",
-		"-target:js_wasm32",
-		"-target-features:bulk-memory,simd128",
-		"-out:web/module.wasm",
-		extra_linker_flags,
-	) or_return
+	if len(os.args) > 1 && os.args[1] == "web" {
+		extra_linker_flags := fmt.tprintf(
+			`-extra-linker-flags:"--export-table --import-memory --initial-memory=%v --max-memory=%v"`,
+			INITIAL_MEMORY_PAGES * PAGE_SIZE,
+			MAX_MEMORY_PAGES     * PAGE_SIZE,
+		)
 
-	cp("web/wgpu.js", odin_path("vendor", "wgpu", "wgpu.js")            or_return) or_return
-	cp("web/odin.js", odin_path("core", "sys", "wasm", "js", "odin.js") or_return) or_return
-	cp("web/nais.js", "../../nais.js")                                             or_return
+		system(
+			"odin", "build", ".",
+			"-collection:pkg=../../../pkg",
+			"-o:speed",
+			"-target:js_wasm32",
+			"-target-features:bulk-memory,simd128",
+			"-out:web/module.wasm",
+			extra_linker_flags,
+		) or_return
 
-	if len(os.args) > 1 && os.args[1] == "serve" {
-		serve() or_return
+		cp("web/wgpu.js", odin_path("vendor", "wgpu", "wgpu.js")            or_return) or_return
+		cp("web/odin.js", odin_path("core", "sys", "wasm", "js", "odin.js") or_return) or_return
+		cp("web/nais.js", "../../nais.js")                                             or_return
+
+		// if len(os.args) > 2 && os.args[2] == "serve" {
+		// 	serve() or_return
+		// }
+	} else if len(os.args) > 1 && os.args[1] == "build" {
+		command: [dynamic]string
+		append(&command, "odin", "build", ".", "-collection:pkg=../../../pkg")
+		if len(os.args) > 2 {
+			append(&command, ..os.args[2:])
+		}
+
+		system(..command[:]) or_return
+	} else if len(os.args) > 1 && os.args[1] == "run" {
+		command: [dynamic]string
+		append(&command, "odin", "run", ".", "-collection:pkg=../../../pkg")
+		if len(os.args) > 2 {
+			append(&command, ..os.args[2:])
+		}
+
+		system(..command[:]) or_return
+	} else {
+		fmt.eprintfln("usage: %v web|build|run <extra odin args>", os.args[0])
 	}
 
 	return true
 }
 
-@(require_results)
-serve :: proc() -> bool {
-	s: http.Server
-
-	handler := http.handler(proc(ctx: ^http.Context) {
-		http.respond_dir(ctx.res, "", "web", ctx.req.url.path)
-	})
-
-	log.infof("serving web at port %v", http.Default_Endpoint.port)
-	err := http.listen_and_serve(&s, handler)
-
-	if err != nil {
-		log.errorf("serve: %v", err)
-		return false
-	}
-
-	return true
-}
+// @(require_results)
+// serve :: proc() -> bool {
+// 	s: http.Server
+//
+// 	handler := http.handler(proc(ctx: ^http.Context) {
+// 		http.respond_dir(ctx.res, "", "web", ctx.req.url.path)
+// 	})
+//
+// 	log.infof("serving web at port %v", http.Default_Endpoint.port)
+// 	err := http.listen_and_serve(&s, handler)
+//
+// 	if err != nil {
+// 		log.errorf("serve: %v", err)
+// 		return false
+// 	}
+//
+// 	return true
+// }
 
 @(require_results)
 cp :: proc(dst, src: string, loc := #caller_location) -> bool {

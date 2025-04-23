@@ -5,8 +5,7 @@ import "core:math/linalg"
 import "core:math"
 import "core:slice"
 
-// TODO: this path is not going to be correct.
-import clay "../../../pkg/clay"
+import clay "pkg:clay"
 
 import nais "../.."
 

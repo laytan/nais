@@ -293,7 +293,7 @@ _gfx_sprite_update_atlas :: proc() {
 	aw := int(g.rp.width)
 	// ah := int(g.rp.height)
 	texture_data := make([][4]u8, g.rp.width * g.rp.height, context.temp_allocator)
-	for sprite, sprite_i in g.sprites {
+	for sprite in g.sprites {
 		assert(!!sprite.rect.was_packed)
 		w := int(sprite.rect.w - 1)
 		h := int(sprite.rect.h - 1)

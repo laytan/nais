@@ -21,7 +21,7 @@ tasks:
     generates:
       - './box2d'
     cmds:
-      - 'odin build . -o:none -extra-linker-flags:"-fuse-ld=ld.mold"'
+      - 'odin build . -o:none -collection:pkg=../../../pkg'
 
   hot:
     watch: true
@@ -44,7 +44,7 @@ tasks:
       MAX_MEMORY_BYTES:
         sh: python -c "print({{.MAX_MEMORY_PAGES}} * {{.PAGE_SIZE}})"
     cmds:
-      - 'odin build . -o:speed -target:js_wasm32 -out:web/box2d.wasm -target-features:"bulk-memory,simd128" -extra-linker-flags:"--export-table --import-memory --initial-memory={{.INITIAL_MEMORY_BYTES}} --max-memory={{.MAX_MEMORY_BYTES}}"'
+      - 'odin build . -collection:pkg=../../../pkg -o:speed -target:js_wasm32 -out:web/box2d.wasm -target-features:"bulk-memory,simd128" -extra-linker-flags:"--export-table --import-memory --initial-memory={{.INITIAL_MEMORY_BYTES}} --max-memory={{.MAX_MEMORY_BYTES}}"'
 
   copy_web_assets:
     vars:
