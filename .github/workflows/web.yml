@@ -48,7 +48,6 @@ jobs:
           cp -R examples/box2d/web website/examples/box2d
           cp -R examples/cbor/web  website/examples/cbor
           cp -R examples/hello/web website/examples/hello
-          cp -R examples/jam/web website/examples/jam
           cp -R examples/clay-official-website/web website/examples/clay-official-website
 
           echo "Hellope!"        > website/index.html
