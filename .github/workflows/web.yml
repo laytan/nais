@@ -28,6 +28,7 @@ jobs:
       - uses: laytan/setup-odin@v2
         with:
           release: false
+          llvm-version: 18
 
       - name: Set up Clay
         run: |
