@@ -232,7 +232,7 @@ _gfx_sprite_write_consts :: proc() {
 
 	constants := Constants{ 
 		texture_size   = { 1. / f32(g.rp.width), 1. / f32(g.rp.height) },
-		transformation = _camera_matrix(window_size(), 1),
+		transformation = _camera_matrix(window_size()),
 	}
 
 	wgpu.QueueWriteBuffer(queue, g.constant_buffer, 0, &constants, size_of(constants))

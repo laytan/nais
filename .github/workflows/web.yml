@@ -24,32 +24,49 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      # - uses: laytan/setup-odin@v2
-      #   with:
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      # - name: Get commonmark
-      #   run: sudo apt-fast install libcmark-dev
-      # - name: Get and build Odin docs generator
-      #   run: |
-      #     cd /home/runner
-      #     git clone https://github.com/odin-lang/pkg.odin-lang.org odin-doc
-      #     cd odin-doc
-      #     # The /home/runner/odin directory is in the PATH so output it there.
-      #     odin build . -out:/home/runner/odin/odin-doc
-      #     cd /home/runner
       - uses: actions/checkout@v4
-      # - name: Generate documentation
-      #   run: ./docs/generate.sh
+      - uses: laytan/setup-odin@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Clay
+        run: |
+          set -euo pipefail
+
+          mkdir -p _pkg/src
+
+          git clone https://github.com/nicbarker/clay.git --depth=1 _pkg/src/clay
+          cp -R _pkg/src/clay/bindings/odin/clay-odin _pkg/clay
+
+      - name: Set up Dear ImGui
+        run: |
+          set -euo pipefail
+
+          mkdir -p _pkg
+          
+          git clone https://gitlab.com/laytan/odin-imgui.git --depth=1 --branch=web-support _pkg/imgui
+
       - name: Create website
         run: |
+          set -euo pipefail
+
           mkdir -p website/examples
 
-          cp -R examples/bunny/web website/examples/bunny
-          cp -R examples/box2d/web website/examples/box2d
-          cp -R examples/cbor/web  website/examples/cbor
-          cp -R examples/hello/web website/examples/hello
-          cp -R examples/imgui/web website/examples/imgui
-          cp -R examples/clay-official-website/web website/examples/clay-official-website
+          odin build examples/_build -out:build -debug
+
+          examples=(
+            "box2d-bunnies"
+            "box2d-character"
+            "bunny"
+            "cbor"
+            "clay-official-website"
+            "hello"
+            "imgui"
+          )
+          for example in "${examples[@]}"; do
+            ./build "examples/$example" web -collection:pkg=_pkg -o:size -target-features:"simd128,bulk-memory"
+            cp -R "examples/_out/$example/web" "website/examples/$example"
+          done
 
           echo "Hellope!"        > website/index.html
           echo "nais.laytan.dev" > website/CNAME

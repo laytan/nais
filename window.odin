@@ -280,7 +280,7 @@ run :: proc(title: string, size: [2]int, flags: Flags, handler: Event_Handler) {
 	_run(title, size, flags, handler)
 }
 
-default_context :: proc() -> runtime.Context {
+ctx :: proc() -> runtime.Context {
 	return g_window.ctx
 }
 

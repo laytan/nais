@@ -25,14 +25,17 @@ Renderer_Frame :: struct {}
 Renderer :: #type proc(event: Renderer_Event)
 
 Camera :: struct {
-	target: [2]f32,
-	zoom: f32,
+	size:     [2]f32,
+	target:   Maybe([2]f32),
+	zoom:     f32,
+	invert_y: bool,
 }
 
-// TODO: what else does a camera api need?
-// TODO: zoom feels off but I can't place it.
-
 camera_set :: proc(c: Maybe(Camera)) {
+	if g_window.gfx.camera == c {
+		return
+	}
+
 	g_window.gfx.camera = c
 	fresh()
 	for r in g_window.gfx.renderers {
@@ -40,31 +43,36 @@ camera_set :: proc(c: Maybe(Camera)) {
 	}
 }
 
-// TODO: not using target.
 camera_view :: proc() -> [2]f32 {
 	c := g_window.gfx.camera.?
-	return window_size() / c.zoom
+	return c.size * c.zoom
 }
 
 // PERF: every renderer calls this on every resize, is that expensive, probably not?
 @(private)
-_camera_matrix :: proc(sz: [2]f32, multiplier: f32) -> matrix[4,4]f32 {
-	c, has_c := g_window.gfx.camera.?
-	if has_c {
-		c.target *= multiplier
-	} else {
-		// c.target = sz * .5
+_camera_matrix :: proc(sz: [2]f32) -> matrix[4,4]f32 {
+	c, _ := g_window.gfx.camera.?
+
+	target := c.target.? or_else sz * .5
+
+	if c.zoom == 0 {
 		c.zoom = 1
 	}
 
-	// zoom_offset := (1. - c.zoom) * c.target
-	translation := c.target
+	if c.size == 0 {
+		c.size = sz
+	}
 
-	transformation := linalg.matrix_ortho3d(0, sz.x, sz.y, 0, -1, 1)
-	transformation *= linalg.matrix4_translate_f32({translation.x, translation.y, 0})
-	transformation *= linalg.matrix4_scale(c.zoom)
+	extents := c.size * .5 * c.zoom
+	lower   := target - extents
+	upper   := target + extents
+	sz      := upper - lower
 
-	return transformation
+	if !c.invert_y {
+		upper.y, lower.y = lower.y, upper.y
+	}
+
+	return linalg.matrix_ortho3d_f32(lower.x, upper.x, lower.y, upper.y, -1, 1)
 }
 
 background_set :: proc(color: [4]f64) {

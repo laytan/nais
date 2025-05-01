@@ -3,12 +3,11 @@ package nais
 
 import sa "core:container/small_array"
 import    "core:log"
+import    "core:math/linalg"
 
 import    "vendor:wgpu"
 
 Constants :: struct #packed {
-	dpi: f32,
-	_:   [3]f32,
 	mvp: matrix[4, 4]f32,
 }
 #assert(size_of(Constants) % 16 == 0)
@@ -26,12 +25,18 @@ Shape_Type :: enum u32 {
 	Circle,
 	Rectangle,
 	Rectangle_Outline,
+	Capsule,
+	Circle_Outline,
+	Segment,
 }
 
 MAX_SHAPES :: 1024
 
-BORDER_WIDTH_CIRCLE    :: [4]f32{-1, 0, 0, 0}
-BORDER_WIDTH_RECTANGLE :: [4]f32{-2, 0, 0, 0}
+BORDER_WIDTH_CIRCLE         :: [4]f32{-1, 0, 0, 0}
+BORDER_WIDTH_RECTANGLE      :: [4]f32{-2, 0, 0, 0}
+BORDER_WIDTH_CAPSULE        :: [4]f32{-3, 0, 0, 0}
+BORDER_WIDTH_CIRCLE_OUTLINE :: [4]f32{-4, 0, 0, 0}
+BORDER_WIDTH_SEGMENT        :: [4]f32{-5, 0, 0, 0}
 
 _draw_circle_sdf :: proc(position: [2]f32, radius: f32, color: [4]f32) {
 	if radius == 0 || color.a == 0 {
@@ -41,14 +46,30 @@ _draw_circle_sdf :: proc(position: [2]f32, radius: f32, color: [4]f32) {
 	_gfx_swap_renderer(_sdf_renderer, true)
 
 	sa.append(&g.shapes, Shape{
-		position     = position,
-		size         = radius,
+		position     = position - radius,
+		size         = radius * 2,
 		color        = color,
 		border_width = BORDER_WIDTH_CIRCLE,
 	})
 }
 
-_draw_rectangle_sdf :: proc(position: [2]f32, size: [2]f32, color: [4]f32, rounding: [4]f32) {
+_draw_circle_outline_sdf :: proc(position: [2]f32, radius: f32, color: [4]f32, thickness: f32) {
+	if radius == 0 || color.a == 0 || thickness == 0 {
+		return
+	}
+
+	_gfx_swap_renderer(_sdf_renderer, true)
+
+	sa.append(&g.shapes, Shape{
+		position     = position - radius,
+		size         = radius * 2,
+		color        = color,
+		border_width = BORDER_WIDTH_CIRCLE_OUTLINE,
+		rounding     = thickness,
+	})
+}
+
+_draw_rectangle_sdf :: proc(position: [2]f32, size: [2]f32, color: [4]f32, rounding: [4]f32, angle: f32) {
 	if size == 0 || color.a == 0 {
 		return
 	}
@@ -60,7 +81,7 @@ _draw_rectangle_sdf :: proc(position: [2]f32, size: [2]f32, color: [4]f32, round
 		size         = size,
 		color        = color,
 		rounding     = rounding,
-		border_width = BORDER_WIDTH_RECTANGLE,
+		border_width = {BORDER_WIDTH_RECTANGLE.x, angle, 0, 0},
 	})
 }
 
@@ -77,6 +98,34 @@ _draw_rectangle_outline_sdf :: proc(position: [2]f32, size: [2]f32, color: [4]f3
 		color        = color,
 		rounding     = rounding,
 		border_width = thickness,
+	})
+}
+
+_draw_capsule_sdf :: proc(p1, p2: [2]f32, color: [4]f32, radius: f32) {
+	// TODO: validate
+
+	_gfx_swap_renderer(_sdf_renderer, true)
+
+	sa.append(&g.shapes, Shape{
+		position     = linalg.min(p1, p2) - radius,
+		size         = linalg.abs(p2 - p1) + radius * 2,
+		color        = color,
+		rounding     = {p1.x, p1.y, p2.x, p2.y},
+		border_width = {BORDER_WIDTH_CAPSULE.x, radius, 0, 0},
+	})
+}
+
+_draw_segment_sdf :: proc(p1, p2: [2]f32, color: [4]f32, thickness: f32) {
+	// TODO: validate
+
+	_gfx_swap_renderer(_sdf_renderer, true)
+
+	sa.append(&g.shapes, Shape{
+		position     = linalg.min(p1, p2) - thickness,
+		size         = linalg.abs(p2 - p1) + thickness * 2,
+		color        = color,
+		rounding     = {p1.x, p1.y, p2.x, p2.y},
+		border_width = {BORDER_WIDTH_SEGMENT.x, thickness, 0, 0},
 	})
 }
 
@@ -198,7 +247,7 @@ _gfx_init_sdf :: proc() {
 		},
 		primitive = {
 			topology = .TriangleStrip,
-			cullMode = .Back,
+			// cullMode = .Back,
 
 		},
 		multisample = {
@@ -214,8 +263,7 @@ _gfx_sdf_write_consts :: proc() {
 	queue  := g_window.gfx.queue
 
 	constants := Constants{ 
-		dpi = dpi().x,
-		mvp = _camera_matrix(window_size(), 1),
+		mvp = _camera_matrix(window_size()),
 	}
 
 	wgpu.QueueWriteBuffer(queue, g.constant_buffer, 0, &constants, size_of(constants))

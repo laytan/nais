@@ -10,7 +10,7 @@ import clay "pkg:clay"
 import nais "../.."
 
 measure_text :: proc "c" (text: clay.StringSlice, config: ^clay.TextElementConfig, _: rawptr) -> clay.Dimensions {
-	context = nais.default_context()
+	context = nais.ctx()
 
 	bounds := nais.measure_text(
 		string(text.chars[:text.length]),
@@ -34,48 +34,49 @@ color :: proc(color: [4]f32) -> u32 {
 }
 
 render :: proc(render_commands: ^clay.ClayArray(clay.RenderCommand)) {
-	batches := make([dynamic]i32, context.temp_allocator)
-
-	for i in 0..<i32(render_commands.length) {
-		render_command := clay.RenderCommandArray_Get(render_commands, i)
-		if render_command.commandType == .ScissorStart {
-			append(&batches, i)
-		}
-		if render_command.commandType == .ScissorEnd {
-			append(&batches, i)
-		}
-	}
-	if len(batches) > 0 {
-		if batches[len(batches)-1] != render_commands.length-1 {
-			append(&batches, render_commands.length-1)
-		}
-	}
-
-	start: i32
-	for batch, i in batches {
-		end := batch
-		defer start = batch + 1
-
-		batch_slice := render_commands.internalArray[start:end]
-
-		slice.sort_by(batch_slice, proc(a, b: clay.RenderCommand) -> bool {
-			assert(a.commandType != .ScissorStart)
-			assert(a.commandType != .ScissorEnd)
-
-			assert(b.commandType != .ScissorStart)
-			assert(b.commandType != .ScissorEnd)
-
-			if a.zIndex != b.zIndex {
-				return a.zIndex < b.zIndex
-			}
-
-			if a.treeDepth != b.treeDepth {
-				return a.treeDepth < b.treeDepth
-			}
-
-			return a.commandType < b.commandType
-		})
-	}
+	// TODO: enable when treeDepth
+	// batches := make([dynamic]i32, context.temp_allocator)
+	//
+	// for i in 0..<i32(render_commands.length) {
+	// 	render_command := clay.RenderCommandArray_Get(render_commands, i)
+	// 	if render_command.commandType == .ScissorStart {
+	// 		append(&batches, i)
+	// 	}
+	// 	if render_command.commandType == .ScissorEnd {
+	// 		append(&batches, i)
+	// 	}
+	// }
+	// if len(batches) > 0 {
+	// 	if batches[len(batches)-1] != render_commands.length-1 {
+	// 		append(&batches, render_commands.length-1)
+	// 	}
+	// }
+	//
+	// start: i32
+	// for batch, i in batches {
+	// 	end := batch
+	// 	defer start = batch + 1
+	//
+	// 	batch_slice := render_commands.internalArray[start:end]
+	//
+	// 	slice.sort_by(batch_slice, proc(a, b: clay.RenderCommand) -> bool {
+	// 		assert(a.commandType != .ScissorStart)
+	// 		assert(a.commandType != .ScissorEnd)
+	//
+	// 		assert(b.commandType != .ScissorStart)
+	// 		assert(b.commandType != .ScissorEnd)
+	//
+	// 		if a.zIndex != b.zIndex {
+	// 			return a.zIndex < b.zIndex
+	// 		}
+	//
+	// 		if a.treeDepth != b.treeDepth {
+	// 			return a.treeDepth < b.treeDepth
+	// 		}
+	//
+	// 		return a.commandType < b.commandType
+	// 	})
+	// }
 
 	for i in 0..<i32(render_commands.length) {
 		render_command := clay.RenderCommandArray_Get(render_commands, i)

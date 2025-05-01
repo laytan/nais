@@ -5,3 +5,5 @@
 *.dSYM
 *.bin
 *.dylib
+examples/_scratch
+examples/_out

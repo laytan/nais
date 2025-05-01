@@ -7,14 +7,6 @@ import "core:math/linalg"
 import nais "../.."
 
 size := [2]f32{360, 360}
-cursor: [2]f32
-scroll: [2]f32
-pos:    [2]f32
-pointer: bool
-debug: bool
-camera := nais.Camera{
-	zoom = 1,
-}
 
 main :: proc() {
 	context.logger = log.create_console_logger(.Info)
@@ -31,7 +23,10 @@ main :: proc() {
 		case nais.Frame:
 			nais.background_set({1, 1, 1, 1})
 
-			nais.draw_text("Hellope", pos=size/2, color={0, 0, 0, 255}, align_h=.Right, align_v=.Top)
+			nais.draw_rectangle(0, {size.x, 10}, {1, 0, 0, 1})
+			nais.draw_circle_outline(size*.5, 96, {0, 1, 0, 1}, 2)
+			nais.draw_text("Hellope", pos=size*.5, color={0, 0, 0, 255}, align_h=.Center, align_v=.Middle)
+
 		}
 	})
 }

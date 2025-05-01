@@ -208,10 +208,7 @@ _gfx_init_text :: proc() {
 _gfx_text_write_consts :: proc() {
 	queue  := g_window.gfx.queue
 
-	dpi    := dpi()
-	assert(dpi.x == dpi.y)
-
-	proj := _camera_matrix(frame_buffer_size(), dpi.x)
+	proj := _camera_matrix(frame_buffer_size())
 
 	wgpu.QueueWriteBuffer(queue, g.const_buffer, 0, &proj, size_of(proj))
 }
