@@ -449,6 +449,8 @@ _KEY_MOUSE_8      :: 127
 __key_down_callback :: proc(e: js.Event) {
 	context = g_window.ctx
 
+	log.info("key down", e.key)
+
 	key, ok := KEY_MAP[e.key.code]
 	if !ok {
 		log.warnf("key %v not recognized", e.key.code)
@@ -461,6 +463,8 @@ __key_down_callback :: proc(e: js.Event) {
 @(private="file")
 __key_up_callback :: proc(e: js.Event) {
 	context = g_window.ctx
+
+	log.info("key up", e.key)
 
 	key, ok := KEY_MAP[e.key.code]
 	if !ok {
@@ -475,6 +479,8 @@ __key_up_callback :: proc(e: js.Event) {
 __key_press_callback :: proc(e: js.Event) {
 	context = g_window.ctx
 
+	log.info("key press", e.key)
+
 	i := e.data.key
 	if i.ctrl || i.meta { return }
 	if i.char >= 0x00 && i.char <= 0x1F { return }
@@ -485,6 +491,8 @@ __key_press_callback :: proc(e: js.Event) {
 @(private="file")
 __mouse_down_callback :: proc(e: js.Event) {
 	context = g_window.ctx
+
+	log.info("mouse down", e.mouse)
 
 	js.event_prevent_default()
 
@@ -506,6 +514,8 @@ __mouse_down_callback :: proc(e: js.Event) {
 @(private="file")
 __mouse_up_callback :: proc(e: js.Event) {
 	context = g_window.ctx
+
+	log.info("mouse up", e.mouse)
 
 	js.event_prevent_default()
 
@@ -534,6 +544,8 @@ __mouse_move_callback :: proc(e: js.Event) {
 @(private="file")
 __scroll_callback :: proc(e: js.Event) {
 	context = g_window.ctx
+
+	log.info("scroll", e.scroll)
 
 	g_window.handler(Scroll{
 		delta = -e.scroll.delta,
