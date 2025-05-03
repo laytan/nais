@@ -16,77 +16,77 @@ import nais      "../.."
 import nais_clay "../../integrations/clay"
 
 CBOR :: `{
-	"base64": 34("MTYgaXMgYSBuaWNlIG51bWJlcg=="),
-	"biggest": 2(h'0f951a9fd3c158afdff08ab8e0'),
-	"biggie": 18446744073709551615,
-	"child": {
-		"dyn": [
-			"one",
-			"two",
-			"three",
-			"four"
-		],
-		"mappy": {
-			"one": 1,
-			"two": 2,
-			"four": 4,
-			"three": 3
-		},
-		"my_integers": [
-			1,
-			2,
-			3,
-			4,
-			5,
-			6,
-			7,
-			8,
-			9,
-			10
-		]
-	},
-	"comp": [
-		32.0000,
-		33.0000
-	],
-	"cstr": "Hellnope",
-	"ennie": 0,
-	"ennieb": 512,
-	"iamint": -256,
-	"important": "!",
-	"my_bytes": h'',
-	"neg": -69,
-	"no": null,
-	"nos": undefined,
-	"now": 1(1701117968),
-	"nowie": {
-		"_nsec": 1701117968000000000
-	},
-	"onetwenty": 12345,
-	"pos": 1212,
-	"quat": [
-		17.0000,
-		18.0000,
-		19.0000,
-		16.0000
-	],
-	"renamed :)": 123123.12500000,
-	"small_onetwenty": -18446744073709551615,
-	"smallest": 3(h'0f951a9fd3c158afdff08ab8e0'),
-	"smallie": -18446744073709551616,
-	"str": "Hellope",
-	"value": {
-		16: "16 is a nice number",
-		32: 69
-	},
-	"yes": true
+    "base64": 34("MTYgaXMgYSBuaWNlIG51bWJlcg=="),
+    "biggest": 2(h'0f951a9fd3c158afdff08ab8e0'),
+    "biggie": 18446744073709551615,
+    "child": {
+        "dyn": [
+            "one",
+            "two",
+            "three",
+            "four"
+        ],
+        "mappy": {
+            "one": 1,
+            "two": 2,
+            "four": 4,
+            "three": 3
+        },
+        "my_integers": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+        ]
+    },
+    "comp": [
+        32.0000,
+        33.0000
+    ],
+    "cstr": "Hellnope",
+    "ennie": 0,
+    "ennieb": 512,
+    "iamint": -256,
+    "important": "!",
+    "my_bytes": h'',
+    "neg": -69,
+    "no": null,
+    "nos": undefined,
+    "now": 1(1701117968),
+    "nowie": {
+        "_nsec": 1701117968000000000
+    },
+    "onetwenty": 12345,
+    "pos": 1212,
+    "quat": [
+        17.0000,
+        18.0000,
+        19.0000,
+        16.0000
+    ],
+    "renamed :)": 123123.12500000,
+    "small_onetwenty": -18446744073709551615,
+    "smallest": 3(h'0f951a9fd3c158afdff08ab8e0'),
+    "smallie": -18446744073709551616,
+    "str": "Hellope",
+    "value": {
+        16: "16 is a nice number",
+        32: 69
+    },
+    "yes": true
 }`
 
 g: struct {
-	editor:    edit.State,
+	editor:    edit.State `cbor:"-"`,
 	builder:   strings.Builder,
 	file_path: [dynamic]byte,
-	inp:       Input,
+	inp:       Input `cbor:"-"`,
 }
 
 Font :: enum {
@@ -104,11 +104,29 @@ fonts := [Font]nais.Font{}
 
 ctx: runtime.Context
 
+init_state :: proc() {
+	strings.builder_init(&g.builder)
+	strings.write_string(&g.builder, CBOR)
+
+	resize(&g.file_path, 0)
+	append(&g.file_path, "scratch.odin")
+}
+
+reload_state :: proc() {
+	if state, ok := nais.persist_get("state"); ok {
+		if err := cbor.unmarshal(state, &g); err == nil {
+			return
+		}
+	}
+
+	init_state()
+}
+
 main :: proc() {
 	context.logger = log.create_console_logger(.Info)
 	ctx = context
 
-	nais.run("CBOR", {800, 450}, {.VSync, .Low_Power, .Windowed_Fullscreen}, proc(ev: nais.Event) {
+	nais.run("CBOR", {800, 450}, {.VSync, .Low_Power, .Windowed_Fullscreen, .Save_Window_State}, proc(ev: nais.Event) {
 		#partial switch e in ev {
 		case nais.Initialized:
 			fonts[.Default] = nais.load_font_from_memory("Default", font_data[.Default])
@@ -120,16 +138,13 @@ main :: proc() {
 			ok &= ba.init(&g.inp.new_keys, int(max(nais.Key)))
 			assert(ok)
 
+			reload_state()
+
 			edit.init(&g.editor, context.allocator, context.allocator)
 			g.editor.set_clipboard = proc(user_data: rawptr, text: string) -> (ok: bool) { return nais.clipboard_set(text) }
 			g.editor.get_clipboard = proc(user_data: rawptr) -> (text: string, ok: bool) { return nais.clipboard()         }
-			strings.builder_init(&g.builder)
-			strings.write_string(&g.builder, CBOR)
 			edit.setup_once(&g.editor, &g.builder)
 			edit.move_to(&g.editor, .Start)
-
-			append(&g.file_path, "scratch.odin")
-
 
 			min_memory_size := clay.MinMemorySize()
 			arena := clay.CreateArenaWithCapacityAndMemory(uint(min_memory_size), make([^]byte, min_memory_size))
@@ -138,7 +153,17 @@ main :: proc() {
 			clay.Initialize(arena, {sz.x, sz.y}, { handler = handle_clay_error })
 
 			clay.SetMeasureTextFunction(nais_clay.measure_text, nil)
-			clay.SetDebugModeEnabled(true)
+
+		case nais.Quit:
+			state, err := cbor.marshal(g)
+			if err != nil {
+				log.errorf("marshal state: %v", err)
+				return
+			}
+
+			if !nais.persist_set("state", state) {
+				log.errorf("persist state: %v", state)
+			}
 
 		case nais.Resize:
 			sz := nais.window_size()
@@ -147,17 +172,11 @@ main :: proc() {
 		case nais.Input:
 			i_press_release(e.key, e.action)
 
-			// if e.key == .Mouse_Left {
-			// 	log.warn("click", e.action == .Pressed)
-			// 	clay.SetPointerState(linalg.array_cast(g.inp.cursor, f32), e.action == .Pressed)
-			// }
-
 		case nais.Text:
 			edit.input_rune(&g.editor, e.ch)
 
 		case nais.Move:
 			g.inp.cursor = linalg.array_cast(e.position, i32)
-			// clay.SetPointerState(linalg.array_cast(g.inp.cursor, f32), key_down(.Mouse_Left))
 
 		case nais.Scroll:
 			g.inp.scroll = e.delta
@@ -246,115 +265,82 @@ main :: proc() {
 						iter := text
 						for line in strings.split_lines_after_iterator(&iter) {
 							line_len := len(line)
-							line := strings.trim_right_space(line)
 
-							if clay.UI()({ id = clay.ID("line", line_i) }) {
+							SELECTION_COLOR :: [4]f32{ 166, 218, 149, 177 }
+
+							line_is_selected           := false
+
+							line_is_partially_selected := false
+							partial_width: f32
+							partial_off:   f32
+
+							caret_before    := caret < buf_i + line_len
+							selection_after := buf_i <= selection_end
+							if caret_before && selection_after {
+								start  := 0
+								caret_on_line := buf_i <= caret && buf_i + line_len > caret
+								if caret_on_line {
+									start = caret - buf_i
+									partial_off, _ = nais.measure_text(line[:start], size=16)
+								}
+
+								end := line_len
+								end_on_line := buf_i <= selection_end && buf_i + line_len > selection_end
+								if end_on_line {
+									end = selection_end - buf_i
+								}
+
+								if !caret_on_line && !end_on_line {
+									line_is_selected = true
+								} else {
+									line_is_partially_selected = true
+									partial_width, _ = nais.measure_text(line[start:end], size=16)
+								}
+							}
+
+							line_id := clay.ID("line", line_i)
+							if clay.UI()({ id = line_id, layout = { padding = { right = 8 } }, backgroundColor = line_is_selected ? SELECTION_COLOR : {} }) {
 								clay.TextDynamic(line, clay.TextConfig({ fontSize=16, textColor={166, 218, 149, 255}, fontId = u16(Font.Default) }))
 
-								// Handle clicking.
-								line_id := clay.GetElementId(clay.MakeString(line))
 								if clay.PointerOver(line_id) && key_down(.Mouse_Left) {
+									data := clay.GetElementData(line_id)
+									assert(data.found)
 
-									// NOTE: assuming the content starts at x 0.
+									target := f32(g.inp.cursor.x) - data.boundingBox.x
+									target_char: int
 
-									tab_width := nais.measure_text("    ", size=16).width
+									iter: nais.Measure_Text_Iter
+									nais.measure_text_iter_init(&iter, line, size=16)
+									for w, i in nais.measure_text_iter(&iter) {
+										target_char = i
+										if w > target {
+											break
+										}
+									}
 
-									at_x: f32
-									at_i: int
-									line_iter := line
-									// TODO:
-									// tabs: for tabbed in strings.split_after_iterator(&line_iter, "\t") {
-									// 	tabbed := tabbed
-									// 	if len(tabbed) > 0 && tabbed[0] == '\t' {
-									// 		tabbed = tabbed[1:]
-									// 		at_x += tab_width
-									// 		if at_x >= f32(g.inp.cursor.x) * dpi.x {
-									// 			break
-									// 		}
-									// 		at_i += 1
-									// 	}
-									//
-									// 	for iter := fs.TextIterInit(&g.fs_renderer.fs, at_x, 0, tabbed); true; {
-									// 		quad: fs.Quad
-									// 		fs.TextIterNext(&g.fs_renderer.fs, &iter, &quad) or_break
-									// 		at_x = quad.x1
-									// 		if at_x >= f32(g.inp.cursor.x) * dpi.x {
-									// 			break tabs
-									// 		}
-									// 		at_i += 1
-									// 	}
-									// }
-
-									g.editor.selection = buf_i + at_i - 1
-								}
-
-								// Draw caret.
-								if buf_i <= caret && buf_i + line_len > caret {
-									column := caret - buf_i
-									width := nais.measure_text(line[:column], size=16).width
-
-									if clay.UI()({
-										id = clay.ID("caret-container"),
-										layout = { sizing = { width = clay.SizingFixed(8), height = clay.SizingFixed(lh) } },
-										floating = { offset = { width, 0 } },
-									}) {
-										if clay.UI()({
-											id = clay.ID("caret"),
-											layout = { sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) } },
-											backgroundColor = { 166, 218, 149, 177 },
-										}) {}
+									if key_pressed(.Mouse_Left) {
+										g.editor.selection    = buf_i + target_char
+									} else {
+										g.editor.selection[1] = buf_i + target_char
 									}
 								}
+
+								if line_is_partially_selected {
+									if clay.UI()({
+										id = clay.ID("selection", line_i),
+										layout = { sizing = { width = clay.SizingFixed(max(2, partial_width)), height = clay.SizingFixed(lh) } },
+										floating = { attachTo = .Parent, offset = { partial_off, 0 } },
+										backgroundColor = SELECTION_COLOR,
+									}) {
+									}
+								}
+
 							}
 
 							line_i += 1
 							buf_i  += line_len
 						}
 					} // content
-
-					// pos := -f32(state.inp.scroll.y)
-					// r.fs_draw_text(fs, text, pos={0, pos}, size=16, color={166, 218, 149, 255}, align_v=.Top)
-					//
-					// caret, selection_end := edit.sorted_selection(&state.editor)
-					//
-					// line := strings.count(text[:caret], "\n")
-					// y := f32(line) * lh - f32(state.inp.scroll.y)
-					//
-					// current_line_start := max(0, strings.last_index_byte(text[:caret], '\n'))
-					// current_line := strings.trim(text[current_line_start:caret], "\n")
-					// x := r.fs_width(fs, current_line)
-					//
-					// caret_pos := [2]f32{x, y}
-					// append(&state.sprites, r.Sprite_Data{
-					// 	location = {4*17, 2*17},
-					// 	size     = {16, 16},
-					// 	anchor   = {0, 0},
-					// 	position = caret_pos,
-					// 	scale    = {16/16, lh/16},
-					// 	rotation = 0,
-					// 	color    = 0xAAa6da95,
-					// })
-					//
-					// if selection_end > caret {
-					// 	selected := text[caret:selection_end]
-					// 	start := caret_pos
-					// 	for line in strings.split_lines_iterator(&selected) {
-					// 		width := r.fs_width(&state.fs_renderer, line)
-					//
-					// 		append(&state.sprites, r.Sprite_Data{
-					// 			location = {4*17, 2*17},
-					// 			size     = {16, 16},
-					// 			anchor   = {0, 0},
-					// 			position = start,
-					// 			scale    = {width/16, lh/16},
-					// 			rotation = 0,
-					// 			color    = 0x66a6da95,
-					// 		})
-					//
-					// 		start.x  = 0
-					// 		start.y += lh
-					// 	}
-					// }
 
 					if clay.UI()({
 						id = clay.ID("bottom"),

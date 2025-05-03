@@ -3,7 +3,10 @@ package main
 import      "core:text/edit"
 import      "core:strings"
 import      "core:math/linalg"
+import      "core:log"
 import ba   "core:container/bit_array"
+
+import clay "pkg:clay"
 
 import nais "../.."
 
@@ -215,7 +218,17 @@ i_press_release :: proc(key: nais.Key, action: nais.Key_Action) {
 			case .Backspace: edit.perform_command(&g.editor, .Backspace)
 			case .Enter:     edit.perform_command(&g.editor, .New_Line)
 
-			case .Tab: edit.input_rune(&g.editor, '\t')
+			case .Tab: edit.input_text(&g.editor, "    ")
+
+			case .D:
+				if ctrl_down() {
+					clay.SetDebugModeEnabled(!clay.IsDebugModeEnabled())
+				}
+
+			case .R:
+				if ctrl_down() {
+					init_state()
+				}
 			}
 
 		case:
