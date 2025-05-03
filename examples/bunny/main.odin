@@ -114,10 +114,10 @@ main :: proc() {
 			text := fmt.tprintf("bunnies: %v, fps: %v", bunnies.len, fps)
 			pos := [2]f32{10, 10}
 			padding := f32(5)
-			bounds := nais.measure_text(text, pos+padding, size=20)
+			width, height := nais.measure_text(text, size=20)
 
-			nais.draw_rectangle(bounds.min - padding, bounds.max - bounds.min + (padding * 2), 0xFF000000)
-			nais.draw_text(text, pos+padding, size=20, color=255)
+			nais.draw_rectangle(pos, [2]f32{width, height} + (padding * 2), {1, 0, 0, 1})
+			nais.draw_text(text, pos+padding, size=20, color=255, align_v=.Top)
 		}
 	})
 }
