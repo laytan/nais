@@ -96,7 +96,6 @@ _gfx_swap_renderer :: proc(r: Renderer, flush: bool) {
 
 fresh :: proc(loc := #caller_location) {
 	f := &g_window.gfx.frame
-	log.info("fresh")
 
 	if g_window.gfx.curr_renderer != nil {
 		// log.info("fresh", loc.procedure)
