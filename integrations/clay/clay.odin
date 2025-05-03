@@ -12,18 +12,18 @@ import nais "../.."
 measure_text :: proc "c" (text: clay.StringSlice, config: ^clay.TextElementConfig, _: rawptr) -> clay.Dimensions {
 	context = nais.ctx()
 
-	bounds := nais.measure_text(
-		string(text.chars[:text.length]),
-		pos     = 0,
+	text := string(text.chars[:text.length])
+
+	w, h := nais.measure_text(
+		text,
 		size    = f32(config.fontSize),
 		font    = nais.Font(config.fontId),
 		spacing = f32(config.letterSpacing),
-		align_v = .Top,
 	)
 
 	return {
-		width  = bounds.width,
-		height = bounds.max.y - bounds.min.y,
+		width  = w,
+		height = h,
 	}
 }
 

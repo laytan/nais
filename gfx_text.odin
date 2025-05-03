@@ -46,30 +46,45 @@ draw_text :: proc(
     font: Font = 0,
     align_h: Text_Align_Horizontal = .Left,
     align_v: Text_Align_Vertical   = .Baseline,
-    x_inc: ^f32 = nil,
-    y_inc: ^f32 = nil,
-	flush := true,
 ) {
-	_draw_text(text, pos, size, color, blur, spacing, font, align_h, align_v, x_inc, y_inc, flush)
+	_draw_text(text, pos, size, color, blur, spacing, font, align_h, align_v)
 }
 
-Text_Bounds :: struct {
-	width: f32,
-	min:   [2]f32,
-	max:   [2]f32,
-}
+// Text_Bounds :: struct {
+// 	width: f32,
+// 	min:   [2]f32,
+// 	max:   [2]f32,
+// }
 
 measure_text :: proc(
     text: string,
-	pos: [2]f32 = 0,
     size: f32 = 36,
     spacing: f32 = 0,
     blur: f32 = 0,
     font: Font = 0,
-    align_h: Text_Align_Horizontal = .Left,
-    align_v: Text_Align_Vertical   = .Baseline,
-) -> Text_Bounds {
-	return _measure_text(text, pos, size, spacing, blur, font, align_h, align_v)
+) -> (w, h: f32) {
+	return _measure_text(text, size, spacing, blur, font)
+}
+
+Measure_Text_Iter :: struct {
+	iter:  fs.TextIter,
+	scale: f32,
+	i:     int,
+}
+
+measure_text_iter_init :: proc(
+	iter: ^Measure_Text_Iter,
+	text: string,
+	size: f32 = 36,
+	spacing: f32 = 0,
+	blur: f32 = 0,
+	font: Font = 0,
+) {
+	_measure_text_iter_init(iter, text, size, spacing, blur, font)
+}
+
+measure_text_iter :: proc(iter: ^Measure_Text_Iter) -> (w: f32, i: int, ok: bool) {
+	return _measure_text_iter(iter)
 }
 
 line_height :: proc(font: Font = 0, size: f32 = 36) -> f32 {

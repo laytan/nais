@@ -329,43 +329,70 @@ _text_renderer :: proc(ev: Renderer_Event) {
 	}
 }
 
-// TODO: probably remove tabs handling from this.
-// Or, have a way to set tab width.
-
+// TODO: only width, make user call line height for height
 _measure_text :: proc(
     text: string,
-    pos: [2]f32,
     size: f32 = 36,
     spacing: f32 = 0,
     blur: f32 = 0,
     font: Font = 0,
-    align_h: Text_Align_Horizontal = .Left,
-    align_v: Text_Align_Vertical   = .Baseline,
-) -> (bounds: Text_Bounds) {
+) -> (w, h: f32) {
 	if len(text) == 0 {
-		bounds.min = pos
-		bounds.max = pos
 		return
 	}
+
+	dpi := dpi().x
 
 	g.fs.state_count = 1
 	state := fs.__getState(&g.fs)
 	state^ = {
-		size    = size,
+		size    = size * dpi,
 		blur    = blur,
 		spacing = spacing,
 		font    = int(font),
-		ah      = fs.AlignHorizontal(align_h),
-		av      = fs.AlignVertical(align_v),
+		ah      = .LEFT,
+		av      = .BASELINE,
 	}
 
-	actual_text, _ := strings.replace_all(text, "\t", "    ", context.temp_allocator)
+	_, _, h = fs.VerticalMetrics(&g.fs)
+	h /= dpi
 
-	assert(!strings.contains(text, "\n"), "unimplemented")
+	w = fs.TextBounds(&g.fs, text, 0, 0) / 2
+	return
+}
 
-	bounds.width = fs.TextBounds(&g.fs, actual_text, pos.x, pos.y, (^[4]f32)(&bounds.min))
-	bounds.min.y, bounds.max.y = fs.LineBounds(&g.fs, pos.y)
+_measure_text_iter_init :: proc(
+	iter: ^Measure_Text_Iter,
+    text: string,
+    size: f32 = 36,
+    spacing: f32 = 0,
+    blur: f32 = 0,
+    font: Font = 0,
+) {
+	iter.scale = dpi().x
 
+	g.fs.state_count = 1
+	state := fs.__getState(&g.fs)
+	state^ = {
+		size    = size * iter.scale,
+		blur    = blur,
+		spacing = spacing,
+		font    = int(font),
+		ah      = .LEFT,
+		av      = .BASELINE,
+	}
+
+	iter.iter = fs.TextIterInit(&g.fs, 0, 0, text)
+}
+
+_measure_text_iter :: proc(iter: ^Measure_Text_Iter) -> (w: f32, i: int, ok: bool) {
+	quad: fs.Quad
+	fs.TextIterNext(&g.fs, &iter.iter, &quad) or_return
+
+	i = iter.i
+	iter.i += 1
+	w  = iter.iter.nextx / iter.scale
+	ok = true
 	return
 }
 
@@ -379,9 +406,9 @@ _draw_text :: proc(
     font: Font,
     align_h: Text_Align_Horizontal,
     align_v: Text_Align_Vertical,
-    x_inc: ^f32,
-    y_inc: ^f32,
-	flush: bool,
+    // x_inc: ^f32,
+ //    y_inc: ^f32,
+	// flush: bool,
 ) {
 	if len(text) == 0 {
 		return
@@ -391,7 +418,9 @@ _draw_text :: proc(
 		return
 	}
 
-	_gfx_swap_renderer(_text_renderer, flush)
+	// assert(!strings.contains_any(text, "\t\r\n"), "unsupported character in text")
+
+	_gfx_swap_renderer(_text_renderer, true)
 
 	dpi := dpi()
 	assert(dpi.x == dpi.y, "unimplemented support for weird dpi")
@@ -407,16 +436,14 @@ _draw_text :: proc(
 		av      = fs.AlignVertical(align_v),
 	}
 
-	_, _, lh := fs.VerticalMetrics(&g.fs)
+	// _, _, lh := fs.VerticalMetrics(&g.fs)
 
 	pos := pos
 	pos *= dpi.x
 
-	iter_text := text
-	for line in strings.split_lines_iterator(&iter_text) {
-		actual_line, _ := strings.replace_all(line, "\t", "    ", context.temp_allocator)
-
-		for iter := fs.TextIterInit(&g.fs, pos.x, pos.y, actual_line); true; {
+	// iter_text := text
+	// for line in strings.split_lines_iterator(&iter_text) {
+		for iter := fs.TextIterInit(&g.fs, pos.x, pos.y, text); true; {
 			quad: fs.Quad
 			fs.TextIterNext(&g.fs, &iter, &quad) or_break
 
@@ -435,17 +462,17 @@ _draw_text :: proc(
 			}
 		}
 
-		pos.y += lh
-	}
+		// pos.y += lh
+	// }
 
-	if y_inc != nil {
-		y_inc^ = pos.y
-	}
-
-	if x_inc != nil {
-		last := g.font_instances.data[g.font_instances.len-1]
-		x_inc^ = last.pos_max.x
-	}
+	// if y_inc != nil {
+	// 	y_inc^ = pos.y
+	// }
+	//
+	// if x_inc != nil {
+	// 	last := g.font_instances.data[g.font_instances.len-1]
+	// 	x_inc^ = last.pos_max.x
+	// }
 }
 
 _line_height :: proc(font: Font, size: f32) -> f32 {
