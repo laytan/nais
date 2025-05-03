@@ -1,9 +1,13 @@
 package build
 
-import    "core:fmt"
-import    "core:log"
-import    "core:strings"
-import os "core:os/os2"
+import       "core:fmt"
+import       "core:hash/xxhash"
+import       "core:log"
+import       "core:strings"
+import       "core:sys/posix"
+import       "core:time"
+import os    "core:os/os2"
+import win32 "core:sys/windows"
 
 main :: proc() {
 	level: log.Level = .Debug when ODIN_DEBUG else .Info
@@ -35,143 +39,12 @@ _main :: proc() -> bool {
 		case "run":
 			return run(os.args[1], extra)
 		case "hot":
-			return hot()
+			return hot(os.args[1], extra)
 		}
 	}
 
 	fmt.eprintfln("usage: %v <path> web|build|run|hot <extra odin args>", os.args[0])
 	return false
-
-	// if len(os.args) > 1 && os.args[1] == "web" {
-	// 	extra_linker_flags := fmt.tprintf(
-	// 		`-extra-linker-flags:"--export-table --import-memory --initial-memory=%v --max-memory=%v"`,
-	// 		INITIAL_MEMORY_PAGES * PAGE_SIZE,
-	// 		MAX_MEMORY_PAGES     * PAGE_SIZE,
-	// 	)
-	//
-	// 	system(
-	// 		"odin", "build", ".",
-	// 		"-collection:pkg=../../../pkg",
-	// 		"-o:speed",
-	// 		"-target:js_wasm32",
-	// 		"-target-features:bulk-memory,simd128",
-	// 		"-out:web/module.wasm",
-	// 		extra_linker_flags,
-	// 	) or_return
-	//
-	// 	cp("web/wgpu.js", odin_path("vendor", "wgpu", "wgpu.js")            or_return) or_return
-	// 	cp("web/odin.js", odin_path("core", "sys", "wasm", "js", "odin.js") or_return) or_return
-	// 	cp("web/nais.js", "../../nais.js")                                             or_return
-	//
-	// 	// if len(os.args) > 2 && os.args[2] == "serve" {
-	// 	// 	serve() or_return
-	// 	// }
-	// } else if len(os.args) > 1 && os.args[1] == "build" {
-	// 	command: [dynamic]string
-	// 	append(&command, "odin", "build", ".", "-collection:pkg=../../../pkg")
-	// 	if len(os.args) > 2 {
-	// 		append(&command, ..os.args[2:])
-	// 	}
-	//
-	// 	system(..command[:]) or_return
-	// } else if len(os.args) > 1 && os.args[1] == "run" {
-	// 	command: [dynamic]string
-	// 	append(&command, "odin", "run", ".", "-collection:pkg=../../../pkg")
-	// 	if len(os.args) > 2 {
-	// 		append(&command, ..os.args[2:])
-	// 	}
-	//
-	// 	system(..command[:]) or_return
-	// } else if len(os.args) > 1 && os.args[1] == "hot" {
-	//
-	// 	build_and_run :: proc() -> (p: os.Process, ok: bool) {
-	// 		system("odin", "build", ".", "-collection:pkg=../../../pkg") or_return
-	//
-	// 		// TODO: use -out to make sure where it is.
-	//
-	// 		err: os.Error
-	// 		p, err = os.process_start({
-	// 			command = {"./imgui"},
-	// 			stdout  = os.stdout,
-	// 			stderr  = os.stderr,
-	// 		})
-	// 		ok = print_error("./imgui", "", err)
-	// 		return
-	// 	}
-	//
-	// 	filter :: proc(info: os.File_Info) -> bool {
-	// 		_, name := os.split_path(info.fullpath)
-	//
-	// 		#partial switch info.type {
-	// 		case .Directory:
-	// 			switch name {
-	// 			case ".git", "examples": return false
-	// 			case:                    return true
-	// 			}
-	// 		case .Regular:
-	// 			_, ext := os.split_filename(name)
-	// 			switch ext {
-	// 			case "odin", "a", "lib", "dylib", "dll", "o", "wgsl": return true
-	// 			case:                                                 return false
-	// 			}
-	// 		case:
-	// 			return false
-	// 		}
-	// 	}
-	//
-	// 	p := build_and_run() or_return
-	//
-	// 	prev_digest: u64
-	// 	hasher: Hasher_State
-	// 	for {
-	// 		defer time.sleep(time.Second)
-	//
-	// 		state, err := os.process_wait(p, 0)
-	// 		if err != nil && err != .Timeout {
-	// 			print_error("odin", "run", err) or_return
-	// 		}
-	//
-	// 		if state.exited {
-	// 			log.info("process exited")
-	// 			return false
-	// 		}
-	//
-	// 		{
-	// 			digest: u64
-	// 			d: time.Duration
-	// 			{
-	// 				time.SCOPED_TICK_DURATION(&d)
-	// 				hash_reset(&hasher)
-	// 				hash_dir(&hasher, ".",       filter) // example
-	// 				hash_dir(&hasher, "../..",   filter) // nais
-	// 				// hash_dir(&hasher, ODIN_ROOT, filter) // Odin
-	// 				digest = hash_digest(&hasher)
-	// 			}
-	//
-	// 			log.info(d)
-	//
-	// 			if prev_digest != 0 && prev_digest != digest {
-	// 				log.info("restart!")
-	//
-	// 				err := os.process_kill(p)
-	// 				print_error("odin", "kill", err) or_return
-	// 				
-	// 				state, err = os.process_wait(p)
-	// 				_ = print_error("odin", "wait", err)
-	// 				assert(err != nil || state.exited)
-	//
-	// 				p = build_and_run() or_return
-	// 			}
-	// 			prev_digest = digest
-	// 		}
-	// 	}
-	//
-	//
-	// } else {
-	// 	fmt.eprintfln("usage: %v web|build|run <path> <extra odin args>", os.args[0])
-	// }
-	//
-	// return true
 }
 
 web :: proc(path: string, extra_args: []string) -> bool {
@@ -253,17 +126,149 @@ run :: proc(path: string, extra_args: []string) -> bool {
 	return true
 }
 
-hot :: proc() -> bool {
-	unimplemented("hot")
+hot :: proc(path: string, extra_args: []string) -> bool {
+	build_and_run :: proc(path: string, extra_args: []string) -> (p: os.Process, ok: bool) {
+		_, name := os.split_path(path)
+		out := join_path({out_dir(path) or_return, name}) or_return
+
+		command: [dynamic]string
+		command.allocator = context.temp_allocator
+		append(
+			&command,
+			"odin", "build", path,
+			fmt.tprintf(`-out:"%s"`, out),
+		)
+		append(&command, ..extra_args)
+		system(..command[:]) or_return
+
+		when ODIN_OS == .Windows {
+			exe := fmt.tprintf("%s.exe", out)
+		} else {
+			exe := out
+		}
+
+		err: os.Error
+		p, err = os.process_start({
+			command = {exe},
+			stdout  = os.stdout,
+			stderr  = os.stderr,
+		})
+		ok = print_error("odin run", err)
+		return
+	}
+
+	filter :: proc(info: os.File_Info) -> bool {
+		_, name := os.split_path(info.fullpath)
+
+		#partial switch info.type {
+		case .Directory:
+			switch name {
+			case ".git", "examples": return false
+			case:                    return true
+			}
+		case .Regular:
+			_, ext := os.split_filename(name)
+			switch ext {
+			case "odin", "a", "lib", "dylib", "dll", "o", "wgsl": return true
+			case:                                                 return false
+			}
+		case:
+			return false
+		}
+	}
+
+	// NOTE: os.process_kill uses SIGKILL which is too aggressive.
+	process_terminate :: proc(p: os.Process) -> bool {
+		when ODIN_OS == .Windows {
+			if !win32.TerminateProcess(win32.HANDLE(p.handle), 15) {
+				log.errorf("process_terminate: %v", win32.GetLastError())
+				return false
+			}
+
+			return true
+		} else {
+			if posix.kill(posix.pid_t(p.pid), .SIGTERM) != .OK {
+				log.errorf("process_terminate: %v", posix.strerror())
+				return false
+			}
+
+			return true
+		}
+	}
+
+	p := build_and_run(path, extra_args) or_return
+
+	prev_digest: u64
+	hasher: Hasher_State
+	for {
+		defer time.sleep(time.Second)
+
+		free_all(context.temp_allocator)
+
+		state, err := os.process_wait(p, 0)
+		if err != nil && err != .Timeout {
+			print_error("odin run", err) or_return
+		}
+
+		if state.exited {
+			log.info("process exited")
+			return false
+		}
+
+		{
+			digest: u64
+			// d: time.Duration
+			{
+				// time.SCOPED_TICK_DURATION(&d)
+				hash_reset(&hasher)
+				hash_dir(&hasher, path,                 filter)
+				hash_dir(&hasher, nais_dir() or_return, filter) // NOTE: adding nais for development of nais itself.
+				digest = hash_digest(&hasher)
+			}
+
+			if prev_digest != 0 && prev_digest != digest {
+				log.info("restart!")
+
+				process_terminate(p) or_return
+				
+				state, err = os.process_wait(p)
+				_ = print_error("wait for termination", err)
+				assert(err != nil || state.exited)
+
+				p = build_and_run(path, extra_args) or_return
+			}
+			prev_digest = digest
+		}
+	}
+
+	return true
 }
 
 serve :: proc() -> bool {
 	unimplemented("serve")
+	// @(require_results)
+	// serve :: proc() -> bool {
+	// 	s: http.Server
+	//
+	// 	handler := http.handler(proc(ctx: ^http.Context) {
+	// 		http.respond_dir(ctx.res, "", "web", ctx.req.url.path)
+	// 	})
+	//
+	// 	log.infof("serving web at port %v", http.Default_Endpoint.port)
+	// 	err := http.listen_and_serve(&s, handler)
+	//
+	// 	if err != nil {
+	// 		log.errorf("serve: %v", err)
+	// 		return false
+	// 	}
+	//
+	// 	return true
+	// }
 }
 
 @(require_results)
 join_path :: proc(paths: []string, loc := #caller_location) -> (_joined: string, ok: bool) {
-	joined, err := os.join_path(paths, context.allocator)
+	joined, err := os.join_path(paths, context.temp_allocator)
 	print_error("join_path", err, loc=loc) or_return
 	return joined, true
 }
@@ -293,26 +298,6 @@ out_dir :: proc(path: string, loc := #caller_location) -> (_out: string, ok: boo
 	return out, true
 }
 
-
-// @(require_results)
-// serve :: proc() -> bool {
-// 	s: http.Server
-//
-// 	handler := http.handler(proc(ctx: ^http.Context) {
-// 		http.respond_dir(ctx.res, "", "web", ctx.req.url.path)
-// 	})
-//
-// 	log.infof("serving web at port %v", http.Default_Endpoint.port)
-// 	err := http.listen_and_serve(&s, handler)
-//
-// 	if err != nil {
-// 		log.errorf("serve: %v", err)
-// 		return false
-// 	}
-//
-// 	return true
-// }
-
 @(require_results)
 cp :: proc(dst, src: string, loc := #caller_location) -> bool {
 	log.debugf("cp %v -> %v", src, dst, location=loc)
@@ -325,17 +310,6 @@ cp :: proc(dst, src: string, loc := #caller_location) -> bool {
 	return true
 }
 
-// @(require_results)
-// odin_path :: proc(paths: ..string) -> (path: string, ok: bool) {
-// 	paths_ := make([]string, len(paths) + 1, context.temp_allocator)	
-// 	paths_[0] = ODIN_ROOT
-// 	copy(paths_[1:], paths)
-//
-// 	joined, err := os.join_path(paths_, context.temp_allocator)
-// 	print_error("os", "join_path", err) or_return
-// 	return joined, true
-// }
-//
 @(require_results)
 system :: proc(command: ..string, loc := #caller_location) -> bool {
 	joined := strings.join(command, " ", context.temp_allocator)
@@ -383,47 +357,47 @@ print_state :: proc(cmd: string, state: os.Process_State, loc := #caller_locatio
 	return state.exit_code == 0 && state.success
 }
 
-//
-// Hasher_State :: struct {
-// 	hash:   xxhash.XXH3_state,
-// 	walker: os.Walker,
-// }
-//
-// hash_reset :: proc(state: ^Hasher_State) {
-// 	xxhash.XXH3_64_reset(&state.hash)
-// }
-//
-// hash_dir :: proc(state: ^Hasher_State, path: string, filter: proc(info: os.File_Info) -> bool) {
-// 	os.walker_init_path(&state.walker, path)
-//
-// 	for info in os.walker_walk(&state.walker) {
-// 		_ = os.walker_error(&state.walker) or_break
-//
-// 		(info.type == .Directory || info.type == .Regular) or_continue
-//
-// 		if !filter(info) {
-// 			if info.type == .Directory {
-// 				os.walker_skip_dir(&state.walker)
-// 			}
-// 			continue
-// 		}
-//
-// 		if info.type == .Regular {
-// 			log.debug(info.fullpath)
-//
-// 			mod := info.modification_time
-// 			assert(mod._nsec > 0)
-// 			bytes := ([^]byte)(&mod)[:size_of(mod)]
-//
-// 			xxhash.XXH3_64_update(&state.hash, bytes)
-// 		}
-// 	}
-//
-// 	if path, err := os.walker_error(&state.walker); err != nil {
-// 		log.errorf("%q: %v", path, os.error_string(err))
-// 	}
-// }
-//
-// hash_digest :: proc(state: ^Hasher_State) -> u64 {
-// 	return xxhash.XXH3_64_digest(&state.hash)
-// }
+
+Hasher_State :: struct {
+	hash:   xxhash.XXH3_state,
+	walker: os.Walker,
+}
+
+hash_reset :: proc(state: ^Hasher_State) {
+	xxhash.XXH3_64_reset(&state.hash)
+}
+
+hash_dir :: proc(state: ^Hasher_State, path: string, filter: proc(info: os.File_Info) -> bool) {
+	os.walker_init_path(&state.walker, path)
+
+	for info in os.walker_walk(&state.walker) {
+		_ = os.walker_error(&state.walker) or_break
+
+		(info.type == .Directory || info.type == .Regular) or_continue
+
+		if !filter(info) {
+			if info.type == .Directory {
+				os.walker_skip_dir(&state.walker)
+			}
+			continue
+		}
+
+		if info.type == .Regular {
+			log.debug(info.fullpath)
+
+			mod := info.modification_time
+			assert(mod._nsec > 0)
+			bytes := ([^]byte)(&mod)[:size_of(mod)]
+
+			xxhash.XXH3_64_update(&state.hash, bytes)
+		}
+	}
+
+	if path, err := os.walker_error(&state.walker); err != nil {
+		log.errorf("%q: %v", path, os.error_string(err))
+	}
+}
+
+hash_digest :: proc(state: ^Hasher_State) -> u64 {
+	return xxhash.XXH3_64_digest(&state.hash)
+}
