@@ -256,7 +256,7 @@ main :: proc() {
 					if clay.UI()({
 						id = clay.ID("content"),
 						layout = { sizing = { width = clay.SizingGrow({}), height = clay.SizingGrow({}) }, layoutDirection = .TopToBottom },
-						scroll = { vertical = true },
+						clip = { vertical = true, childOffset = clay.GetScrollOffset() },
 					}) {
 						caret, selection_end := edit.sorted_selection(&g.editor)
 
